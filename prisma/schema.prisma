@@ -102,3 +102,16 @@ model Certificate {
 
   @@map("certificates")
 }
+
+model ContactMessage {
+  id        String   @id @default(uuid())
+  name      String
+  email     String
+  subject   String?
+  message   String
+  type      String   @default("contact") // contact, company_query
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@map("contact_messages")
+}

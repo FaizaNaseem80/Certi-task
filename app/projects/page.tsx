@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/Button";
 
 interface Project {
@@ -92,8 +92,38 @@ export default function ProjectsPage() {
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [selectedDifficulty, setSelectedDifficulty] = useState("All");
   const [showAll, setShowAll] = useState(false);
+  const [dbProjects, setDbProjects] = useState<Project[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const filteredProjects = mockProjects.filter((project) => {
+  useEffect(() => {
+    const fetchProjects = async () => {
+      try {
+        const res = await fetch("/api/projects");
+        if (res.ok) {
+          const data = await res.json();
+          const mapped = data.projects.map((p: any) => ({
+            id: p.id,
+            title: p.title,
+            company: p.company?.name || "Unknown Company",
+            category: "General",
+            difficulty: "Intermediate",
+            duration: p.deadline || "TBD",
+            description: p.description,
+            tags: p.requiredSkills ? p.requiredSkills.split(",").map((s: string) => s.trim()) : [],
+            slots: `${p.teamCap} team cap`,
+          }));
+          setDbProjects(mapped);
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchProjects();
+  }, []);
+
+  const filteredProjects = dbProjects.filter((project) => {
     const matchesSearch =
       project.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       project.company.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -214,7 +244,11 @@ export default function ProjectsPage() {
           </div>
 
           {/* Projects Grid */}
-          {filteredProjects.length > 0 ? (
+          {loading ? (
+            <div className="text-center py-16">
+              <p className="text-navy font-bold">Loading real-world projects...</p>
+            </div>
+          ) : filteredProjects.length > 0 ? (
             <div className="space-y-12">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 {displayedProjects.map((project) => (

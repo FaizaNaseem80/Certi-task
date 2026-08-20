@@ -4,15 +4,15 @@ import { getSession } from '@/lib/auth';
 
 export async function GET() {
   const session = await getSession();
-  if (!session || session.role !== 'COMPANY') {
-    // For now, only allow verified platform admins via an environment override or COMPANY role (adapt as needed)
-    // In a real app you'd restrict this to 'ADMIN' role — adjusting to existing roles for compatibility.
+  if (!session || session.role !== 'ADMIN') {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   try {
     const companies = await prisma.user.count({ where: { role: 'COMPANY' } });
     const students = await prisma.user.count({ where: { role: 'STUDENT' } });
     const projects = await prisma.project.count();
+    const applications = await prisma.application.count();
 
     const oneWeekAgo = new Date();
     oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
@@ -20,15 +20,20 @@ export async function GET() {
     const submissionsThisWeek = await prisma.submission.count({ where: { createdAt: { gte: oneWeekAgo } } });
     const certificatesIssued = await prisma.certificate.count({ where: { status: 'Verified' } });
     const certificatesRevoked = await prisma.certificate.count({ where: { status: 'Revoked' } });
+    const unreadMessages = await prisma.contactMessage.count({ where: { isRead: false } });
+    const totalMessages = await prisma.contactMessage.count();
 
     return NextResponse.json({
       counts: {
         companies,
         students,
         projects,
+        applications,
         submissionsThisWeek,
         certificatesIssued,
         certificatesRevoked,
+        unreadMessages,
+        totalMessages,
       },
     });
   } catch (err) {

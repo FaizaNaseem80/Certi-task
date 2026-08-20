@@ -130,8 +130,7 @@ export default function StudentDashboard() {
 
   async function handleSignOut() {
     await fetch("/api/auth/logout", { method: "POST" });
-    router.push("/auth/login");
-    router.refresh();
+    window.location.href = "/auth/login";
   }
 
     // Allow quick edit of student profile (name)
@@ -462,9 +461,14 @@ export default function StudentDashboard() {
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 16 }}>
                   {certificates.map((cert) => (
                     <div key={cert.id} style={{ border: "1px solid var(--border)", borderRadius: 12, padding: 20, background: "#FFFDF5" }}>
-                      <span style={{ fontSize: 10, fontWeight: 700, color: "#276749", background: "rgba(56,161,105,0.12)", padding: "2px 8px", borderRadius: 10 }}>
-                        {cert.status}
-                      </span>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                        <span style={{ fontSize: 10, fontWeight: 700, color: "#276749", background: "rgba(56,161,105,0.12)", padding: "2px 8px", borderRadius: 10 }}>
+                          {cert.status}
+                        </span>
+                        <a href={`/api/certificates/${cert.id}/pdf`} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, fontWeight: 700, color: "var(--gold)", background: "var(--navy)", padding: "4px 10px", borderRadius: 6, textDecoration: "none" }}>
+                          Download PDF
+                        </a>
+                      </div>
                       <h4 style={{ fontSize: 15, fontWeight: 700, color: "var(--navy)", marginTop: 12, marginBottom: 4 }}>{cert.title}</h4>
                       <p style={{ fontSize: 12, color: "var(--ink-muted)", marginBottom: 12 }}>Issued by: <strong>{cert.company.name}</strong></p>
                       <div style={{ borderTop: "1px solid var(--border)", paddingTop: 10, fontSize: 11, color: "var(--ink-subtle)", fontFamily: "monospace" }}>

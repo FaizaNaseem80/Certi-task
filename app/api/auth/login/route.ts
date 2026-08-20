@@ -15,7 +15,7 @@ export async function POST(req: Request) {
 
     const cleanEmail = email.toLowerCase().trim();
 
-    // Query Neon PostgreSQL DB for user
+    // ── Regular user login via Neon PostgreSQL DB ──
     const user = await prisma.user.findUnique({
       where: { email: cleanEmail },
     });

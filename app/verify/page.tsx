@@ -16,8 +16,8 @@ interface Certificate {
 }
 
 const mockCertificates: Record<string, Certificate> = {
-  "CT-9042-89B": {
-    id: "CT-9042-89B",
+  "CERT-333333": {
+    id: "CERT-333333",
     studentName: "Jane Doe",
     major: "Computer Science Major",
     sponsor: "Apex Global Solutions",
@@ -27,8 +27,8 @@ const mockCertificates: Record<string, Certificate> = {
     hash: "8fb4e1f7d23a490b63c8a91f5e27d890ac349bf20a7b678c",
     status: "Valid",
   },
-  "CT-1024-55A": {
-    id: "CT-1024-55A",
+  "CERT-102455": {
+    id: "CERT-102455",
     studentName: "Sarah Smith",
     major: "UX/UI Design Major",
     sponsor: "Vanguard Creative Labs",
@@ -38,8 +38,8 @@ const mockCertificates: Record<string, Certificate> = {
     hash: "7ec2a5f4d89a240b90c1a91e5e22c890ab245bf10a5b678d",
     status: "Valid",
   },
-  "CT-7741-32C": {
-    id: "CT-7741-32C",
+  "CERT-774132": {
+    id: "CERT-774132",
     studentName: "Michael Chang",
     major: "Financial Engineering Major",
     sponsor: "Summit Financial Tech",
@@ -55,18 +55,49 @@ export default function VerifyPage() {
   const [certId, setCertId] = useState("");
   const [result, setResult] = useState<Certificate | null>(null);
   const [searched, setSearched] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const handleSearch = (e: React.FormEvent) => {
+  const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!certId.trim()) return;
+
+    setLoading(true);
+    setSearched(false);
 
     const query = certId.trim().toUpperCase();
     if (mockCertificates[query]) {
       setResult(mockCertificates[query]);
-    } else {
-      setResult(null);
+      setSearched(true);
+      setLoading(false);
+      return;
     }
-    setSearched(true);
+
+    try {
+      const res = await fetch(`/api/verify/${encodeURIComponent(query)}`);
+      if (res.ok) {
+        const data = await res.json();
+        const c = data.certificate;
+        setResult({
+          id: c.certId,
+          studentName: c.studentName,
+          major: "Verified Student",
+          sponsor: c.company.name,
+          projectTitle: c.title,
+          dateIssued: c.issueDate,
+          grade: "Verified Completion",
+          hash: c.id,
+          status: c.status as any
+        });
+      } else {
+        setResult(null);
+      }
+    } catch (err) {
+      console.error(err);
+      setResult(null);
+    } finally {
+      setSearched(true);
+      setLoading(false);
+    }
   };
 
   return (
@@ -105,15 +136,15 @@ export default function VerifyPage() {
                     id="certificateId"
                     value={certId}
                     onChange={(e) => setCertId(e.target.value)}
-                    placeholder="E.g., CT-9042-89B"
+                    placeholder="E.g., CERT-333333"
                     className="block w-full px-4 py-3 bg-paper border border-navy/15 rounded-lg text-ink font-sans text-sm focus:outline-hidden focus:ring-2 focus:ring-gold/50 focus:border-gold transition-colors"
                   />
-                  <Button type="submit" variant="primary" className="py-3 px-8 shrink-0">
-                    Verify Authenticity
+                  <Button type="submit" variant="primary" className="py-3 px-8 shrink-0" disabled={loading}>
+                    {loading ? "Verifying..." : "Verify Authenticity"}
                   </Button>
                 </div>
                 <p className="text-[11px] text-ink/50 leading-normal">
-                  Try typing one of our verified sandbox IDs: <span className="font-mono font-bold text-navy">CT-9042-89B</span>, <span className="font-mono font-bold text-navy">CT-1024-55A</span>, or <span className="font-mono font-bold text-navy">CT-7741-32C</span> to preview verification metrics.
+                  Try typing one of our verified sandbox IDs: <span className="font-mono font-bold text-navy">CERT-333333</span>, <span className="font-mono font-bold text-navy">CERT-102455</span>, or <span className="font-mono font-bold text-navy">CERT-774132</span> to preview verification metrics.
                 </p>
               </div>
             </form>

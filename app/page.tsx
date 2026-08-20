@@ -1,33 +1,27 @@
 import React from "react";
 import Link from "next/link";
+import { prisma } from "@/lib/prisma";
 import { Button } from "@/components/Button";
 
-// Easily replaceable corporate partner structure for future data injection
-const mockCompanies = [
-  {
-    name: "Apex Global Solutions",
-    industry: "Software & Technology",
-    description: "Building the next generation of cloud infrastructures, SaaS architectures, and API frameworks.",
-    location: "San Francisco, CA",
-    logoChar: "A",
-  },
-  {
-    name: "Summit Financial Tech",
-    industry: "Fintech & Consulting",
-    description: "Pioneering secure transactional logic, decentralized ledgers, and institutional asset products.",
-    location: "New York, NY",
-    logoChar: "S",
-  },
-  {
-    name: "Vanguard Creative Labs",
-    industry: "Digital Media & Branding",
-    description: "Shaping digital experiences through high-impact UX, modern typography, and motion media assets.",
-    location: "Austin, TX",
-    logoChar: "V",
-  },
-];
 
-export default function Home() {
+
+export default async function Home() {
+  const dbCompanies = await prisma.user.findMany({
+    where: { role: "COMPANY" },
+    take: 3,
+    orderBy: { createdAt: "desc" },
+  });
+
+  const featuredCompanies = dbCompanies.map((c) => ({
+    name: c.name,
+    industry: c.domain || "Technology",
+    description: c.bio || "Corporate sponsor actively hiring through CertiTask.",
+    location: c.website || "Global",
+    logoChar: c.name.charAt(0).toUpperCase(),
+  }));
+
+  const displayCompanies = featuredCompanies;
+
   const steps = [
     {
       number: "01",
@@ -156,7 +150,7 @@ export default function Home() {
                 <div className="space-y-4 font-sans text-xs">
                   <div className="bg-navy/80 p-3 rounded-lg border border-gold/15 flex justify-between items-center">
                     <div>
-                      <h4 className="font-semibold text-paper text-sm">Certificate #CT-8942</h4>
+                      <h4 className="font-semibold text-paper text-sm">Certificate #CERT-333333</h4>
                       <p className="text-[10px] text-paper/60">Issued to: Jane Doe (CS Major)</p>
                     </div>
                     <span className="text-[10px] px-2 py-1 bg-gold/10 text-gold border border-gold/30 rounded font-semibold">Verify</span>
@@ -254,38 +248,45 @@ export default function Home() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {mockCompanies.map((comp) => (
-              <div
-                key={comp.name}
-                className="bg-white p-6 rounded-xl border border-navy/5 shadow-xs hover:shadow-lg transition-shadow"
-              >
-                <div className="flex items-center gap-4 mb-4">
-                  <div className="h-12 w-12 rounded-lg bg-navy flex items-center justify-center text-gold font-bold text-lg">
-                    {comp.logoChar}
+            {displayCompanies.length > 0 ? (
+              displayCompanies.map((comp) => (
+                <div
+                  key={comp.name}
+                  className="bg-white p-6 rounded-xl border border-navy/5 shadow-xs hover:shadow-lg transition-shadow"
+                >
+                  <div className="flex items-center gap-4 mb-4">
+                    <div className="h-12 w-12 rounded-lg bg-navy flex items-center justify-center text-gold font-bold text-lg">
+                      {comp.logoChar}
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-navy text-base">{comp.name}</h4>
+                      <span className="inline-block text-[10px] font-semibold text-gold bg-gold/10 px-2 py-0.5 rounded border border-gold/10 mt-1">
+                        {comp.industry}
+                      </span>
+                    </div>
                   </div>
-                  <div>
-                    <h4 className="font-bold text-navy text-base">{comp.name}</h4>
-                    <span className="inline-block text-[10px] font-semibold text-gold bg-gold/10 px-2 py-0.5 rounded border border-gold/10 mt-1">
-                      {comp.industry}
+                  <p className="text-sm text-ink/85 leading-relaxed mb-6">
+                    {comp.description}
+                  </p>
+                  <div className="flex justify-between items-center text-xs text-ink/65 pt-4 border-t border-navy/5">
+                    <span className="flex items-center gap-1">
+                      <svg className="h-4 w-4 text-gold" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                      </svg>
+                      {comp.location}
                     </span>
+                    <Link href="/companies" className="text-gold font-semibold hover:underline">
+                      View Profile &rarr;
+                    </Link>
                   </div>
                 </div>
-                <p className="text-sm text-ink/85 leading-relaxed mb-6">
-                  {comp.description}
-                </p>
-                <div className="flex justify-between items-center text-xs text-ink/65 pt-4 border-t border-navy/5">
-                  <span className="flex items-center gap-1">
-                    <svg className="h-4 w-4 text-gold" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                    </svg>
-                    {comp.location}
-                  </span>
-                  <Link href="/companies" className="text-gold font-semibold hover:underline">
-                    View Profile &rarr;
-                  </Link>
-                </div>
+              ))
+            ) : (
+              <div className="col-span-1 md:col-span-3 text-center py-12 bg-white rounded-xl border border-navy/5">
+                <p className="text-navy font-bold text-lg mb-2">More partners joining soon!</p>
+                <p className="text-ink/60 text-sm">Check back later to see our newly featured corporate sponsors.</p>
               </div>
-            ))}
+            )}
           </div>
         </div>
       </section>
@@ -381,7 +382,7 @@ export default function Home() {
                   type="text"
                   placeholder="Enter Certificate ID..."
                   disabled
-                  value="CT-9042-89B"
+                  value="CERT-333333"
                   className="bg-navy-dark text-paper/50 border border-gold/15 px-3 py-2 rounded text-xs w-full cursor-not-allowed font-mono"
                 />
                 <Button href="/verify" variant="gold" className="text-xs py-2 px-4 shrink-0">

@@ -4,12 +4,9 @@ import { getSession } from "@/lib/auth";
 
 export async function GET() {
   const session = await getSession();
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
 
   try {
-    if (session.role === "COMPANY") {
+    if (session?.role === "COMPANY") {
       // Return company's own projects
       const projects = await prisma.project.findMany({
         where: { companyId: session.userId },

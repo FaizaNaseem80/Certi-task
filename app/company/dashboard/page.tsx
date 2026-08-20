@@ -136,8 +136,7 @@ export default function CompanyDashboard() {
 
   async function handleSignOut() {
     await fetch("/api/auth/logout", { method: "POST" });
-    router.push("/auth/login");
-    router.refresh();
+    window.location.href = "/auth/login";
   }
 
     // Save company profile edits

@@ -12,6 +12,7 @@ export default function ContactPage() {
     message: "",
   });
   const [submitted, setSubmitted] = useState(false);
+  const [sending, setSending] = useState(false);
 
   const contactCards = [
     {
@@ -57,13 +58,30 @@ export default function ContactPage() {
     },
   ];
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formState.name || !formState.email || !formState.message) {
       alert("Please fill in the required fields (Name, Email, and Message).");
       return;
     }
-    setSubmitted(true);
+    setSending(true);
+    try {
+      const res = await fetch("/api/contact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...formState, type: "contact" }),
+      });
+      if (res.ok) {
+        setSubmitted(true);
+      } else {
+        alert("Failed to send message. Please try again.");
+      }
+    } catch (error) {
+      console.error(error);
+      alert("An error occurred. Please try again.");
+    } finally {
+      setSending(false);
+    }
   };
 
   return (
@@ -187,8 +205,8 @@ export default function ContactPage() {
                     ></textarea>
                   </div>
 
-                  <Button type="submit" variant="primary" className="w-full py-3.5">
-                    Submit Query
+                  <Button type="submit" variant="primary" className="w-full py-3.5" disabled={sending}>
+                    {sending ? "Sending..." : "Submit Query"}
                   </Button>
                 </form>
               )}

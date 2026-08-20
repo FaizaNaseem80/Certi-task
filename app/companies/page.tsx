@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/Button";
 
 interface Company {
+  id: string;
   name: string;
   industry: string;
   description: string;
@@ -12,81 +13,42 @@ interface Company {
   jobsCount: number;
 }
 
-const mockCompanies: Company[] = [
-  {
-    name: "Apex Global Solutions",
-    industry: "Technology",
-    description: "Building the next generation of cloud architectures, SaaS systems, and developer-centric API frameworks.",
-    location: "San Francisco, CA",
-    logoChar: "A",
-    jobsCount: 5,
-  },
-  {
-    name: "Summit Financial Tech",
-    industry: "Fintech",
-    description: "Pioneering secure transactional logic, decentralized ledgers, and institutional asset management products.",
-    location: "New York, NY",
-    logoChar: "S",
-    jobsCount: 3,
-  },
-  {
-    name: "Vanguard Creative Labs",
-    industry: "Design & Media",
-    description: "Shaping digital experiences through high-impact UX, modern typography, branding assets, and mobile layouts.",
-    location: "Austin, TX",
-    logoChar: "V",
-    jobsCount: 4,
-  },
-  {
-    name: "BioHealth Systems",
-    industry: "Healthcare & Biotech",
-    description: "Integrating machine learning algorithms with genomic sequences to expedite pharmaceutical development and personalized health.",
-    location: "Boston, MA",
-    logoChar: "B",
-    jobsCount: 2,
-  },
-  {
-    name: "EduLearn Networks",
-    industry: "Edtech",
-    description: "Developing decentralized classroom software, digital tutoring systems, and interactive certification pipelines.",
-    location: "Chicago, IL",
-    logoChar: "E",
-    jobsCount: 6,
-  },
-  {
-    name: "Quantum Logix",
-    industry: "Technology",
-    description: "Providing quantum-inspired computing models, high-performance computing clusters, and hardware integrations.",
-    location: "Seattle, WA",
-    logoChar: "Q",
-    jobsCount: 3,
-  },
-  {
-    name: "Nexus Consulting",
-    industry: "Fintech",
-    description: "Strategic consulting for global enterprises, integrating web3 finance solutions and enterprise risk analytics.",
-    location: "London, UK",
-    logoChar: "N",
-    jobsCount: 2,
-  },
-  {
-    name: "Horizon Green Energy",
-    industry: "Energy & Tech",
-    description: "Pioneering sustainable solar, wind, and battery-storage management platforms for residential and industrial grids.",
-    location: "Denver, CO",
-    logoChar: "H",
-    jobsCount: 3,
-  },
-];
-
 const categories = ["All", "Technology", "Fintech", "Design & Media", "Healthcare & Biotech", "Edtech", "Energy & Tech"];
 
 export default function CompaniesPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [showAll, setShowAll] = useState(false);
+  const [dbCompanies, setDbCompanies] = useState<Company[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const filteredCompanies = mockCompanies.filter((company) => {
+  useEffect(() => {
+    const fetchCompanies = async () => {
+      try {
+        const res = await fetch("/api/companies");
+        if (res.ok) {
+          const data = await res.json();
+          const mapped = data.companies.map((c: any) => ({
+            id: c.id,
+            name: c.name,
+            industry: c.domain || "Technology",
+            description: c.bio || "Corporate sponsor actively hiring through CertiTask.",
+            location: c.website || "Global",
+            logoChar: c.name.charAt(0).toUpperCase(),
+            jobsCount: c._count.projects,
+          }));
+          setDbCompanies(mapped);
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchCompanies();
+  }, []);
+
+  const filteredCompanies = dbCompanies.filter((company) => {
     const matchesSearch =
       company.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       company.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -183,7 +145,11 @@ export default function CompaniesPage() {
           </div>
 
           {/* Company Cards Grid */}
-          {filteredCompanies.length > 0 ? (
+          {loading ? (
+            <div className="text-center py-16">
+              <p className="text-navy font-bold">Loading registered companies...</p>
+            </div>
+          ) : filteredCompanies.length > 0 ? (
             <div className="space-y-12">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                 {displayedCompanies.map((company) => (

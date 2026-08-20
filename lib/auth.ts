@@ -12,7 +12,7 @@ export interface SessionPayload {
   userId: string;
   email: string;
   name: string;
-  role: "COMPANY" | "STUDENT";
+  role: "COMPANY" | "STUDENT" | "ADMIN";
 }
 
 /* ── Password hashing ── */
@@ -61,11 +61,7 @@ export async function setAuthCookie(token: string) {
 
 export async function clearAuthCookie() {
   const cookieStore = await cookies();
-  cookieStore.set(COOKIE_NAME, "", {
-    httpOnly: true,
-    expires: new Date(0),
-    path: "/",
-  });
+  cookieStore.delete(COOKIE_NAME);
 }
 
 export async function getSession(): Promise<SessionPayload | null> {
