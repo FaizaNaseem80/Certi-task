@@ -5,3 +5,100 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+
+enum Role {
+  COMPANY
+  STUDENT
+}
+
+model User {
+  id         String   @id @default(uuid())
+  email      String   @unique
+  name       String
+  password   String
+  role       Role     @default(COMPANY)
+  isVerified Boolean  @default(true)
+  domain     String?
+  logoUrl    String?
+  bio        String?
+  website    String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  projects           Project[]     @relation("CompanyProjects")
+  applications       Application[] @relation("StudentApplications")
+  submissions        Submission[]  @relation("StudentSubmissions")
+  issuedCertificates Certificate[] @relation("CompanyCertificates")
+
+  @@map("users")
+}
+
+model Project {
+  id             String   @id @default(uuid())
+  title          String
+  description    String
+  requiredSkills String
+  deliverables   String
+  deadline       String
+  teamCap        Int      @default(20)
+  status         String   @default("Active") // Active, Paused, Closed
+  companyId      String
+  company        User     @relation("CompanyProjects", fields: [companyId], references: [id], onDelete: Cascade)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  applications Application[]
+  submissions  Submission[]
+  certificates Certificate[]
+
+  @@map("projects")
+}
+
+model Application {
+  id        String   @id @default(uuid())
+  teamName  String
+  members   String
+  pitch     String
+  status    String   @default("Pending") // Pending, Shortlisted, Selected, Rejected
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  studentId String?
+  student   User?    @relation("StudentApplications", fields: [studentId], references: [id], onDelete: SetNull)
+  createdAt DateTime @default(now())
+
+  @@map("applications")
+}
+
+model Submission {
+  id            String   @id @default(uuid())
+  teamName      String
+  submissionUrl String
+  notes         String?
+  feedback      String?
+  status        String   @default("Submitted") // Submitted, Approved, Rejected
+  projectId     String
+  project       Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  studentId     String?
+  student       User?    @relation("StudentSubmissions", fields: [studentId], references: [id], onDelete: SetNull)
+  createdAt     DateTime @default(now())
+
+  @@map("submissions")
+}
+
+model Certificate {
+  id           String   @id @default(uuid())
+  certId       String   @unique
+  title        String
+  studentName  String
+  studentEmail String
+  issueDate    String
+  expiryDate   String
+  status       String   @default("Verified") // Verified, Revoked, Disputed
+  companyId    String
+  company      User     @relation("CompanyCertificates", fields: [companyId], references: [id], onDelete: Cascade)
+  projectId    String?
+  project      Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  createdAt    DateTime @default(now())
+
+  @@map("certificates")
+}

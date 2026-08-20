@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono, Inter } from "next/font/google";
 import "./globals.css";
-import { Navbar } from "@/components/Navbar";
-import { Footer } from "@/components/Footer";
+import LayoutWrapper from "@/components/LayoutWrapper";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -14,23 +13,45 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const inter = Inter({
+  variable: "--font-inter",
+  subsets: ["latin"],
+});
+
 export const metadata: Metadata = {
-  title: "CertiTask — Connecting Students With Opportunities That Matter",
-  description: "CertiTask helps students discover career opportunities, manage certificates, build professional profiles, and connect with featured companies.",
+  applicationName: "CertiTask",
+  title: {
+    default: "CertiTask — Connecting Students With Opportunities That Matter",
+    template: "%s | CertiTask",
+  },
+  description:
+    "CertiTask helps students discover career opportunities, manage certificates, build professional profiles, and connect with featured companies.",
+  keywords: ["certifications", "task management", "compliance", "CertiTask"],
+  icons: {
+    icon: [
+      { url: "/favicon-32.png", type: "image/png", sizes: "32x32" },
+      { url: "/app-icon-128.png", type: "image/png", sizes: "128x128" },
+      { url: "/app-icon-256.png", type: "image/png", sizes: "256x256" },
+      { url: "/app-icon-512.png", type: "image/png", sizes: "512x512" },
+    ],
+    shortcut: "/favicon-32.png",
+    apple: "/app-icon-256.png",
+  },
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} ${inter.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-paper text-ink">
-        <Navbar />
-        <main className="flex-1 flex flex-col">{children}</main>
-        <Footer />
+        <LayoutWrapper>{children}</LayoutWrapper>
       </body>
     </html>
   );
 }
-
