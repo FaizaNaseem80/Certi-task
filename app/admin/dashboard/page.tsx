@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
+// ── Types ──
 interface Overview {
   companies: number;
   students: number;
@@ -22,6 +24,7 @@ interface Company {
   domain: string | null;
   website: string | null;
   createdAt: string;
+  isVerified: boolean;
   _count: { projects: number };
 }
 
@@ -31,7 +34,18 @@ interface Student {
   email: string;
   bio: string | null;
   createdAt: string;
+  isVerified: boolean;
   _count: { applications: number; submissions: number };
+}
+
+interface Project {
+  id: string;
+  title: string;
+  description: string;
+  status: string;
+  createdAt: string;
+  company: { name: string; email: string };
+  _count: { applications: number; submissions: number; certificates: number };
 }
 
 interface Message {
@@ -45,56 +59,84 @@ interface Message {
   createdAt: string;
 }
 
-type Tab = "overview" | "companies" | "students" | "messages";
+type Tab = "overview" | "companies" | "students" | "projects" | "messages";
 
 export default function AdminDashboard() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<Tab>("overview");
+
+  // Data states
   const [overview, setOverview] = useState<Overview | null>(null);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
+
+  // UI states
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [isActionLoading, setIsActionLoading] = useState(false);
+  const [actionSuccess, setActionSuccess] = useState("");
 
-  useEffect(() => {
-    fetchAll();
-  }, []);
+  // Edit states
+  const [editingUser, setEditingUser] = useState<Company | Student | null>(null);
+  const [editUserName, setEditUserName] = useState("");
+  const [editUserVerified, setEditUserVerified] = useState(false);
 
-  async function fetchAll() {
+  const [editingProject, setEditingProject] = useState<Project | null>(null);
+  const [editProjectTitle, setEditProjectTitle] = useState("");
+  const [editProjectStatus, setEditProjectStatus] = useState("Active");
+
+  const fetchAll = useCallback(async function fetchAll() {
     setLoading(true);
     setError("");
     try {
-      const [ovRes, usRes, msgRes] = await Promise.all([
+      const [ovRes, usRes, projRes, msgRes] = await Promise.all([
         fetch("/api/admin/overview"),
         fetch("/api/admin/users"),
+        fetch("/api/admin/projects"),
         fetch("/api/admin/messages"),
       ]);
 
-      if (ovRes.status === 401 || usRes.status === 401 || msgRes.status === 401) {
+      const responses = [ovRes, usRes, projRes, msgRes];
+      if (responses.some((response) => response.status === 401 || response.status === 403)) {
         setError("Unauthorized. Please login as Super Admin.");
-        router.push("/auth/login");
+        router.push("/admin/login");
         return;
+      }
+
+      if (responses.some((response) => !response.ok)) {
+        throw new Error("Admin data request failed");
       }
 
       const ovData = await ovRes.json();
       const usData = await usRes.json();
+      const projData = await projRes.json();
       const msgData = await msgRes.json();
 
       setOverview(ovData.counts);
       setCompanies(usData.companies || []);
       setStudents(usData.students || []);
+      setProjects(projData.projects || []);
       setMessages(msgData.messages || []);
     } catch {
       setError("Failed to load admin data.");
     } finally {
       setLoading(false);
     }
-  }
+  }, [router]);
+
+  useEffect(() => {
+    async function loadDashboard() {
+      await fetchAll();
+    }
+
+    void loadDashboard();
+  }, [fetchAll]);
 
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST" });
-    router.push("/auth/login");
+    router.push("/admin/login");
     router.refresh();
   }
 
@@ -106,311 +148,514 @@ export default function AdminDashboard() {
     });
   }
 
-  const tabs: { key: Tab; label: string; icon: string }[] = [
-    { key: "overview", label: "Overview", icon: "📊" },
-    { key: "companies", label: "Companies", icon: "🏢" },
-    { key: "students", label: "Students", icon: "🎓" },
-    { key: "messages", label: "Messages", icon: "✉️" },
-  ];
+  function showSuccess(msg: string) {
+    setActionSuccess(msg);
+    setTimeout(() => setActionSuccess(""), 3000);
+  }
+
+  // ── CRUD Actions ──
+
+  async function deleteUser(id: string, type: "company" | "student") {
+    if (!window.confirm(`Are you sure you want to delete this ${type}? This action cannot be undone.`)) return;
+    setIsActionLoading(true);
+    try {
+      const res = await fetch(`/api/admin/users/${id}`, { method: "DELETE" });
+      if (res.ok) {
+        if (type === "company") setCompanies((prev) => prev.filter((c) => c.id !== id));
+        else setStudents((prev) => prev.filter((s) => s.id !== id));
+        showSuccess(`${type} deleted successfully.`);
+      } else {
+        const data = await res.json();
+        alert(data.error || `Failed to delete ${type}`);
+      }
+    } catch {
+      alert("An error occurred.");
+    } finally {
+      setIsActionLoading(false);
+    }
+  }
+
+  async function saveUserEdit() {
+    if (!editingUser) return;
+    setIsActionLoading(true);
+    try {
+      const res = await fetch(`/api/admin/users/${editingUser.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: editUserName, isVerified: editUserVerified }),
+      });
+      if (res.ok) {
+        // Update local state
+        setCompanies((prev) => prev.map((c) => c.id === editingUser.id ? { ...c, name: editUserName, isVerified: editUserVerified } : c));
+        setStudents((prev) => prev.map((s) => s.id === editingUser.id ? { ...s, name: editUserName, isVerified: editUserVerified } : s));
+        setEditingUser(null);
+        showSuccess("User updated successfully.");
+      } else {
+        const data = await res.json();
+        alert(data.error || "Failed to update user");
+      }
+    } catch {
+      alert("An error occurred.");
+    } finally {
+      setIsActionLoading(false);
+    }
+  }
+
+  async function deleteProject(id: string) {
+    if (!window.confirm("Are you sure you want to delete this project?")) return;
+    setIsActionLoading(true);
+    try {
+      const res = await fetch(`/api/admin/projects/${id}`, { method: "DELETE" });
+      if (res.ok) {
+        setProjects((prev) => prev.filter((p) => p.id !== id));
+        showSuccess("Project deleted successfully.");
+      } else {
+        const data = await res.json();
+        alert(data.error || "Failed to delete project");
+      }
+    } catch {
+      alert("An error occurred.");
+    } finally {
+      setIsActionLoading(false);
+    }
+  }
+
+  async function saveProjectEdit() {
+    if (!editingProject) return;
+    setIsActionLoading(true);
+    try {
+      const res = await fetch(`/api/admin/projects/${editingProject.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: editProjectTitle, status: editProjectStatus }),
+      });
+      if (res.ok) {
+        setProjects((prev) => prev.map((p) => p.id === editingProject.id ? { ...p, title: editProjectTitle, status: editProjectStatus } : p));
+        setEditingProject(null);
+        showSuccess("Project updated successfully.");
+      } else {
+        const data = await res.json();
+        alert(data.error || "Failed to update project");
+      }
+    } catch {
+      alert("An error occurred.");
+    } finally {
+      setIsActionLoading(false);
+    }
+  }
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-paper flex items-center justify-center">
-        <p className="text-navy font-bold text-lg">Loading Super Admin Dashboard...</p>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-8 h-8 border-4 border-navy border-t-gold rounded-full animate-spin"></div>
+          <p className="text-navy font-bold">Loading Control Center...</p>
+        </div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen bg-paper flex items-center justify-center">
-        <p className="text-red-600 font-bold">{error}</p>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="bg-white p-8 rounded-xl shadow-lg text-center max-w-md">
+          <div className="text-red-500 text-5xl mb-4">⚠️</div>
+          <h2 className="text-xl font-bold text-navy mb-2">Access Denied</h2>
+          <p className="text-gray-600 mb-6">{error}</p>
+          <Link href="/admin/login" className="bg-navy text-white px-6 py-2 rounded-lg font-semibold hover:bg-navy/90 transition">
+            Go to Login
+          </Link>
+        </div>
       </div>
     );
   }
 
-  return (
-    <div className="min-h-screen bg-[#f8f7f4]">
-      {/* Top Bar */}
-      <header className="bg-navy text-paper shadow-lg">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="h-9 w-9 rounded-lg bg-gold flex items-center justify-center text-navy font-extrabold text-sm">
-              SA
-            </div>
-            <div>
-              <h1 className="text-lg font-extrabold tracking-tight">Super Admin Panel</h1>
-              <p className="text-[10px] text-paper/60 font-mono">CertiTask Platform Control Center</p>
-            </div>
-          </div>
-          <button
-            onClick={handleLogout}
-            className="px-4 py-2 text-xs font-bold bg-red-500/20 text-red-300 border border-red-500/30 rounded-lg hover:bg-red-500 hover:text-white transition-all cursor-pointer"
-          >
-            Sign Out
-          </button>
-        </div>
-      </header>
+  const sidebarLinks = [
+    { id: "overview", label: "Dashboard", icon: "📊" },
+    { id: "companies", label: "Companies", icon: "🏢" },
+    { id: "students", label: "Students", icon: "🎓" },
+    { id: "projects", label: "Projects", icon: "🚀" },
+    { id: "messages", label: "Messages", icon: "✉️" },
+  ];
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Tab Navigation */}
-        <div className="flex flex-wrap gap-2 mb-8">
-          {tabs.map((tab) => (
+  return (
+    <div className="min-h-screen flex bg-gray-50 font-sans">
+
+      {/* ── SIDEBAR ── */}
+      <aside className="w-64 bg-navy text-white hidden md:flex flex-col sticky top-0 h-screen shadow-xl">
+        <div className="p-6 flex items-center gap-3 border-b border-white/10">
+          <div className="h-10 w-10 rounded-lg bg-gold flex items-center justify-center text-navy font-extrabold text-lg">
+            SA
+          </div>
+          <div>
+            <h1 className="text-lg font-bold tracking-tight text-white leading-tight">CertiTask</h1>
+            <p className="text-[10px] text-white/60 font-mono uppercase tracking-widest">Admin Center</p>
+          </div>
+        </div>
+
+        <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
+          {sidebarLinks.map((link) => (
             <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
-              className={`px-5 py-2.5 rounded-lg text-sm font-bold transition-all cursor-pointer flex items-center gap-2 ${
-                activeTab === tab.key
-                  ? "bg-navy text-gold shadow-md"
-                  : "bg-white text-navy border border-navy/10 hover:border-gold hover:text-gold"
+              key={link.id}
+              onClick={() => setActiveTab(link.id as Tab)}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-semibold transition-all ${
+                activeTab === link.id
+                  ? "bg-gold text-navy shadow-md"
+                  : "text-white/70 hover:bg-white/10 hover:text-white"
               }`}
             >
-              <span>{tab.icon}</span>
-              {tab.label}
-              {tab.key === "messages" && overview && overview.unreadMessages > 0 && (
-                <span className="ml-1 px-1.5 py-0.5 text-[10px] font-bold bg-red-500 text-white rounded-full">
+              <span className="text-lg">{link.icon}</span>
+              {link.label}
+              {link.id === "messages" && overview && overview.unreadMessages > 0 && (
+                <span className="ml-auto bg-red-500 text-white text-[10px] px-2 py-0.5 rounded-full">
                   {overview.unreadMessages}
                 </span>
               )}
             </button>
           ))}
+        </nav>
+
+        <div className="p-4 border-t border-white/10">
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-bold bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white transition-all border border-red-500/20"
+          >
+            <span>🚪</span> Sign Out
+          </button>
         </div>
+      </aside>
 
-        {/* ── OVERVIEW TAB ── */}
-        {activeTab === "overview" && overview && (
-          <div className="space-y-8">
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {[
-                { label: "Registered Companies", value: overview.companies, color: "text-blue-600" },
-                { label: "Registered Students", value: overview.students, color: "text-green-600" },
-                { label: "Total Projects", value: overview.projects, color: "text-purple-600" },
-                { label: "Applications", value: overview.applications, color: "text-orange-600" },
-                { label: "Submissions (7d)", value: overview.submissionsThisWeek, color: "text-cyan-600" },
-                { label: "Certificates Issued", value: overview.certificatesIssued, color: "text-gold" },
-                { label: "Certificates Revoked", value: overview.certificatesRevoked, color: "text-red-600" },
-                { label: "Contact Messages", value: overview.totalMessages, color: "text-navy" },
-              ].map((stat) => (
-                <div
-                  key={stat.label}
-                  className="bg-white p-5 rounded-xl border border-navy/5 shadow-xs hover:shadow-md transition-shadow"
-                >
-                  <p className="text-[11px] font-semibold text-ink/60 uppercase tracking-wide mb-1">
-                    {stat.label}
-                  </p>
-                  <p className={`text-3xl font-extrabold ${stat.color}`}>{stat.value}</p>
-                </div>
-              ))}
-            </div>
+      {/* ── MAIN CONTENT ── */}
+      <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
 
-            {/* Quick Recent Activity */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="bg-white p-6 rounded-xl border border-navy/5 shadow-xs">
-                <h3 className="font-bold text-navy text-sm mb-4">Latest Companies</h3>
-                {companies.length === 0 ? (
-                  <p className="text-xs text-ink/50">No companies registered yet.</p>
-                ) : (
-                  <div className="space-y-3">
-                    {companies.slice(0, 5).map((c) => (
-                      <div key={c.id} className="flex items-center justify-between text-xs">
-                        <div className="flex items-center gap-2">
-                          <div className="h-7 w-7 rounded bg-navy text-gold flex items-center justify-center font-bold text-[10px]">
-                            {c.name.charAt(0)}
-                          </div>
-                          <div>
-                            <p className="font-bold text-navy">{c.name}</p>
-                            <p className="text-ink/50">{c.email}</p>
-                          </div>
-                        </div>
-                        <span className="text-ink/50">{c._count.projects} projects</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+        {/* Mobile Header */}
+        <header className="md:hidden bg-navy text-white p-4 flex items-center justify-between sticky top-0 z-10 shadow-md">
+          <div className="flex items-center gap-2">
+            <div className="h-8 w-8 rounded bg-gold text-navy flex items-center justify-center font-bold">SA</div>
+            <span className="font-bold">Admin</span>
+          </div>
+          <select
+            value={activeTab}
+            onChange={(e) => setActiveTab(e.target.value as Tab)}
+            className="bg-white/10 border border-white/20 text-white text-sm rounded-lg px-3 py-1.5 focus:ring-gold"
+          >
+            {sidebarLinks.map(l => <option key={l.id} value={l.id} className="text-black">{l.label}</option>)}
+          </select>
+        </header>
 
-              <div className="bg-white p-6 rounded-xl border border-navy/5 shadow-xs">
-                <h3 className="font-bold text-navy text-sm mb-4">Latest Messages</h3>
-                {messages.length === 0 ? (
-                  <p className="text-xs text-ink/50">No messages received yet.</p>
-                ) : (
-                  <div className="space-y-3">
-                    {messages.slice(0, 5).map((m) => (
-                      <div key={m.id} className="flex items-start gap-2 text-xs">
-                        <div className={`h-2 w-2 rounded-full mt-1.5 shrink-0 ${m.isRead ? "bg-gray-300" : "bg-red-500"}`} />
-                        <div className="flex-1 min-w-0">
-                          <p className="font-bold text-navy truncate">{m.subject || "No Subject"}</p>
-                          <p className="text-ink/50 truncate">{m.name} — {m.email}</p>
-                        </div>
-                        <span className="text-ink/40 shrink-0">{formatDate(m.createdAt)}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
+        {/* Global Notifications */}
+        {actionSuccess && (
+          <div className="fixed top-4 right-4 z-50 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg font-semibold flex items-center gap-2 animate-fade-in">
+            <span>✅</span> {actionSuccess}
           </div>
         )}
 
-        {/* ── COMPANIES TAB ── */}
-        {activeTab === "companies" && (
-          <div className="bg-white rounded-xl border border-navy/5 shadow-xs overflow-hidden">
-            <div className="px-6 py-4 border-b border-navy/5 flex items-center justify-between">
-              <h3 className="font-bold text-navy">All Registered Companies ({companies.length})</h3>
-            </div>
-            {companies.length === 0 ? (
-              <div className="p-12 text-center text-ink/50 text-sm">No companies registered yet.</div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="bg-navy/[0.03] text-left">
-                      <th className="px-6 py-3 font-bold text-navy/70 uppercase tracking-wide">Company</th>
-                      <th className="px-6 py-3 font-bold text-navy/70 uppercase tracking-wide">Email</th>
-                      <th className="px-6 py-3 font-bold text-navy/70 uppercase tracking-wide">Domain</th>
-                      <th className="px-6 py-3 font-bold text-navy/70 uppercase tracking-wide">Website</th>
-                      <th className="px-6 py-3 font-bold text-navy/70 uppercase tracking-wide">Projects</th>
-                      <th className="px-6 py-3 font-bold text-navy/70 uppercase tracking-wide">Joined</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-navy/5">
-                    {companies.map((c) => (
-                      <tr key={c.id} className="hover:bg-gold/5 transition-colors">
-                        <td className="px-6 py-3">
-                          <div className="flex items-center gap-2">
-                            <div className="h-8 w-8 rounded-lg bg-navy text-gold flex items-center justify-center font-bold text-xs shrink-0">
-                              {c.name.charAt(0)}
-                            </div>
-                            <span className="font-bold text-navy">{c.name}</span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-3 text-ink/70">{c.email}</td>
-                        <td className="px-6 py-3 text-ink/70">{c.domain || "—"}</td>
-                        <td className="px-6 py-3 text-ink/70">{c.website || "—"}</td>
-                        <td className="px-6 py-3">
-                          <span className="px-2 py-0.5 bg-gold/10 text-gold font-bold rounded text-[10px]">
-                            {c._count.projects}
-                          </span>
-                        </td>
-                        <td className="px-6 py-3 text-ink/50">{formatDate(c.createdAt)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        )}
+        {/* Content Area */}
+        <div className="flex-1 overflow-y-auto p-4 md:p-8">
 
-        {/* ── STUDENTS TAB ── */}
-        {activeTab === "students" && (
-          <div className="bg-white rounded-xl border border-navy/5 shadow-xs overflow-hidden">
-            <div className="px-6 py-4 border-b border-navy/5">
-              <h3 className="font-bold text-navy">All Registered Students ({students.length})</h3>
-            </div>
-            {students.length === 0 ? (
-              <div className="p-12 text-center text-ink/50 text-sm">No students registered yet.</div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="bg-navy/[0.03] text-left">
-                      <th className="px-6 py-3 font-bold text-navy/70 uppercase tracking-wide">Student</th>
-                      <th className="px-6 py-3 font-bold text-navy/70 uppercase tracking-wide">Email</th>
-                      <th className="px-6 py-3 font-bold text-navy/70 uppercase tracking-wide">Bio</th>
-                      <th className="px-6 py-3 font-bold text-navy/70 uppercase tracking-wide">Applications</th>
-                      <th className="px-6 py-3 font-bold text-navy/70 uppercase tracking-wide">Submissions</th>
-                      <th className="px-6 py-3 font-bold text-navy/70 uppercase tracking-wide">Joined</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-navy/5">
-                    {students.map((s) => (
-                      <tr key={s.id} className="hover:bg-gold/5 transition-colors">
-                        <td className="px-6 py-3">
-                          <div className="flex items-center gap-2">
-                            <div className="h-8 w-8 rounded-lg bg-green-600 text-white flex items-center justify-center font-bold text-xs shrink-0">
-                              {s.name.charAt(0)}
-                            </div>
-                            <span className="font-bold text-navy">{s.name}</span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-3 text-ink/70">{s.email}</td>
-                        <td className="px-6 py-3 text-ink/70 max-w-[200px] truncate">{s.bio || "—"}</td>
-                        <td className="px-6 py-3">
-                          <span className="px-2 py-0.5 bg-blue-50 text-blue-600 font-bold rounded text-[10px]">
-                            {s._count.applications}
-                          </span>
-                        </td>
-                        <td className="px-6 py-3">
-                          <span className="px-2 py-0.5 bg-purple-50 text-purple-600 font-bold rounded text-[10px]">
-                            {s._count.submissions}
-                          </span>
-                        </td>
-                        <td className="px-6 py-3 text-ink/50">{formatDate(s.createdAt)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+          <div className="mb-6">
+            <h2 className="text-2xl font-bold text-navy capitalize flex items-center gap-2">
+              {sidebarLinks.find(l => l.id === activeTab)?.icon} {sidebarLinks.find(l => l.id === activeTab)?.label}
+            </h2>
+            <p className="text-sm text-gray-500 mt-1">Manage and monitor your platform&apos;s activity.</p>
           </div>
-        )}
 
-        {/* ── MESSAGES TAB ── */}
-        {activeTab === "messages" && (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="font-bold text-navy text-lg">
-                Contact Messages & Queries ({messages.length})
-              </h3>
-            </div>
-            {messages.length === 0 ? (
-              <div className="bg-white p-12 text-center text-ink/50 text-sm rounded-xl border border-navy/5">
-                No messages received yet.
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {messages.map((m) => (
-                  <div
-                    key={m.id}
-                    className={`bg-white p-5 rounded-xl border shadow-xs transition-all ${
-                      m.isRead ? "border-navy/5" : "border-gold/30 shadow-gold/10"
-                    }`}
-                  >
-                    <div className="flex items-start justify-between gap-4 mb-3">
-                      <div className="flex items-center gap-3">
-                        {!m.isRead && (
-                          <span className="h-2.5 w-2.5 rounded-full bg-gold shrink-0" />
-                        )}
-                        <div>
-                          <p className="font-bold text-navy text-sm">
-                            {m.subject || "No Subject"}
-                          </p>
-                          <p className="text-[11px] text-ink/60">
-                            From: <span className="font-semibold text-navy">{m.name}</span> ({m.email})
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${
-                          m.type === "company_query"
-                            ? "bg-purple-50 text-purple-700 border-purple-200"
-                            : "bg-blue-50 text-blue-700 border-blue-200"
-                        }`}>
-                          {m.type === "company_query" ? "Company Query" : "Contact"}
-                        </span>
-                        <span className="text-[10px] text-ink/40">{formatDate(m.createdAt)}</span>
-                      </div>
-                    </div>
-                    <p className="text-sm text-ink/80 leading-relaxed bg-[#f8f7f4] p-3 rounded-lg border border-navy/5">
-                      {m.message}
-                    </p>
+          {/* ── OVERVIEW ── */}
+          {activeTab === "overview" && overview && (
+            <div className="space-y-6">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
+                {[
+                  { label: "Companies", value: overview.companies, color: "bg-blue-50 text-blue-700 border-blue-100" },
+                  { label: "Students", value: overview.students, color: "bg-green-50 text-green-700 border-green-100" },
+                  { label: "Projects", value: overview.projects, color: "bg-purple-50 text-purple-700 border-purple-100" },
+                  { label: "Applications", value: overview.applications, color: "bg-orange-50 text-orange-700 border-orange-100" },
+                  { label: "New Submissions", value: overview.submissionsThisWeek, color: "bg-cyan-50 text-cyan-700 border-cyan-100" },
+                  { label: "Certificates", value: overview.certificatesIssued, color: "bg-yellow-50 text-yellow-700 border-yellow-100" },
+                ].map((stat) => (
+                  <div key={stat.label} className={`p-6 rounded-2xl border shadow-sm ${stat.color} flex flex-col justify-between`}>
+                    <span className="text-xs font-bold uppercase tracking-wider opacity-80 mb-2">{stat.label}</span>
+                    <span className="text-4xl font-extrabold">{stat.value}</span>
                   </div>
                 ))}
               </div>
-            )}
+            </div>
+          )}
+
+          {/* ── COMPANIES ── */}
+          {activeTab === "companies" && (
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm text-left">
+                  <thead className="bg-gray-50 text-gray-600 font-semibold border-b">
+                    <tr>
+                      <th className="px-6 py-4">Name</th>
+                      <th className="px-6 py-4">Email</th>
+                      <th className="px-6 py-4">Projects</th>
+                      <th className="px-6 py-4">Joined</th>
+                      <th className="px-6 py-4 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {companies.map((c) => (
+                      <tr key={c.id} className="hover:bg-gray-50/50 transition-colors">
+                        <td className="px-6 py-4 font-medium text-navy flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-navy text-gold flex items-center justify-center font-bold text-xs">
+                            {c.name.charAt(0)}
+                          </div>
+                          {c.name}
+                        </td>
+                        <td className="px-6 py-4 text-gray-600">{c.email}</td>
+                        <td className="px-6 py-4"><span className="bg-gray-100 text-gray-700 px-2.5 py-1 rounded-md font-medium text-xs">{c._count.projects}</span></td>
+                        <td className="px-6 py-4 text-gray-500 whitespace-nowrap">{formatDate(c.createdAt)}</td>
+                        <td className="px-6 py-4 text-right space-x-2 whitespace-nowrap">
+                          <button
+                            disabled={isActionLoading}
+                            onClick={() => { setEditingUser(c); setEditUserName(c.name); setEditUserVerified(!!c.isVerified); }}
+                            className="text-blue-600 hover:text-blue-800 font-medium disabled:opacity-50"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            disabled={isActionLoading}
+                            onClick={() => deleteUser(c.id, "company")}
+                            className="text-red-600 hover:text-red-800 font-medium disabled:opacity-50"
+                          >
+                            Delete
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                    {companies.length === 0 && (
+                      <tr><td colSpan={5} className="px-6 py-8 text-center text-gray-500">No companies found.</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* ── STUDENTS ── */}
+          {activeTab === "students" && (
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm text-left">
+                  <thead className="bg-gray-50 text-gray-600 font-semibold border-b">
+                    <tr>
+                      <th className="px-6 py-4">Name</th>
+                      <th className="px-6 py-4">Email</th>
+                      <th className="px-6 py-4">Apps / Subs</th>
+                      <th className="px-6 py-4">Joined</th>
+                      <th className="px-6 py-4 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {students.map((s) => (
+                      <tr key={s.id} className="hover:bg-gray-50/50 transition-colors">
+                        <td className="px-6 py-4 font-medium text-navy flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-green-600 text-white flex items-center justify-center font-bold text-xs">
+                            {s.name.charAt(0)}
+                          </div>
+                          {s.name}
+                        </td>
+                        <td className="px-6 py-4 text-gray-600">{s.email}</td>
+                        <td className="px-6 py-4">
+                          <div className="flex gap-2">
+                            <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded text-xs font-bold">{s._count.applications}</span>
+                            <span className="bg-purple-50 text-purple-700 px-2 py-0.5 rounded text-xs font-bold">{s._count.submissions}</span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-gray-500 whitespace-nowrap">{formatDate(s.createdAt)}</td>
+                        <td className="px-6 py-4 text-right space-x-2 whitespace-nowrap">
+                          <button
+                            disabled={isActionLoading}
+                            onClick={() => { setEditingUser(s); setEditUserName(s.name); setEditUserVerified(!!s.isVerified); }}
+                            className="text-blue-600 hover:text-blue-800 font-medium disabled:opacity-50"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            disabled={isActionLoading}
+                            onClick={() => deleteUser(s.id, "student")}
+                            className="text-red-600 hover:text-red-800 font-medium disabled:opacity-50"
+                          >
+                            Delete
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                    {students.length === 0 && (
+                      <tr><td colSpan={5} className="px-6 py-8 text-center text-gray-500">No students found.</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* ── PROJECTS ── */}
+          {activeTab === "projects" && (
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm text-left">
+                  <thead className="bg-gray-50 text-gray-600 font-semibold border-b">
+                    <tr>
+                      <th className="px-6 py-4">Project Title</th>
+                      <th className="px-6 py-4">Company</th>
+                      <th className="px-6 py-4">Status</th>
+                      <th className="px-6 py-4 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {projects.map((p) => (
+                      <tr key={p.id} className="hover:bg-gray-50/50 transition-colors">
+                        <td className="px-6 py-4">
+                          <p className="font-bold text-navy truncate max-w-xs">{p.title}</p>
+                          <p className="text-xs text-gray-400 mt-1">Apps: {p._count.applications} | Subs: {p._count.submissions}</p>
+                        </td>
+                        <td className="px-6 py-4 text-gray-600">
+                          <p className="font-medium">{p.company.name}</p>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
+                            p.status === "Active" ? "bg-green-100 text-green-700" :
+                            p.status === "Paused" ? "bg-yellow-100 text-yellow-700" :
+                            "bg-gray-100 text-gray-700"
+                          }`}>
+                            {p.status}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-right space-x-2 whitespace-nowrap">
+                          <button
+                            disabled={isActionLoading}
+                            onClick={() => { setEditingProject(p); setEditProjectTitle(p.title); setEditProjectStatus(p.status); }}
+                            className="text-blue-600 hover:text-blue-800 font-medium disabled:opacity-50"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            disabled={isActionLoading}
+                            onClick={() => deleteProject(p.id)}
+                            className="text-red-600 hover:text-red-800 font-medium disabled:opacity-50"
+                          >
+                            Delete
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                    {projects.length === 0 && (
+                      <tr><td colSpan={4} className="px-6 py-8 text-center text-gray-500">No projects found.</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* ── MESSAGES ── */}
+          {activeTab === "messages" && (
+            <div className="space-y-4">
+              {messages.length === 0 ? (
+                <div className="bg-white p-12 text-center text-gray-500 rounded-xl border">No messages received.</div>
+              ) : (
+                messages.map((m) => (
+                  <div key={m.id} className={`bg-white p-6 rounded-xl border shadow-sm ${!m.isRead ? 'border-l-4 border-l-gold' : ''}`}>
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                        <h4 className="font-bold text-navy">{m.subject || "No Subject"}</h4>
+                        <p className="text-xs text-gray-500 mt-0.5">{m.name} ({m.email})</p>
+                      </div>
+                      <span className="text-xs text-gray-400 bg-gray-50 px-2 py-1 rounded">{formatDate(m.createdAt)}</span>
+                    </div>
+                    <p className="text-sm text-gray-700 bg-gray-50 p-4 rounded-lg mt-3">{m.message}</p>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+
+        </div>
+      </main>
+
+      {/* ── MODALS ── */}
+
+      {/* Edit User Modal */}
+      {editingUser && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-fade-in">
+            <div className="p-6 border-b border-gray-100">
+              <h3 className="text-xl font-bold text-navy">Edit User</h3>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Name</label>
+                <input
+                  type="text"
+                  value={editUserName}
+                  onChange={(e) => setEditUserName(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-navy focus:border-navy outline-none"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="verifyUser"
+                  checked={editUserVerified}
+                  onChange={(e) => setEditUserVerified(e.target.checked)}
+                  className="w-4 h-4 text-navy rounded border-gray-300 focus:ring-navy"
+                />
+                <label htmlFor="verifyUser" className="text-sm font-medium text-gray-700">User is Verified</label>
+              </div>
+            </div>
+            <div className="p-4 bg-gray-50 border-t flex justify-end gap-2">
+              <button onClick={() => setEditingUser(null)} className="px-4 py-2 text-gray-600 font-medium hover:bg-gray-100 rounded-lg transition">Cancel</button>
+              <button disabled={isActionLoading} onClick={saveUserEdit} className="px-6 py-2 bg-navy text-white font-bold rounded-lg hover:bg-navy/90 transition disabled:opacity-50">
+                {isActionLoading ? "Saving..." : "Save Changes"}
+              </button>
+            </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
+
+      {/* Edit Project Modal */}
+      {editingProject && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-fade-in">
+            <div className="p-6 border-b border-gray-100">
+              <h3 className="text-xl font-bold text-navy">Edit Project</h3>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Project Title</label>
+                <input
+                  type="text"
+                  value={editProjectTitle}
+                  onChange={(e) => setEditProjectTitle(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-navy focus:border-navy outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Status</label>
+                <select
+                  value={editProjectStatus}
+                  onChange={(e) => setEditProjectStatus(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-navy outline-none"
+                >
+                  <option value="Active">Active</option>
+                  <option value="Paused">Paused</option>
+                  <option value="Closed">Closed</option>
+                </select>
+              </div>
+            </div>
+            <div className="p-4 bg-gray-50 border-t flex justify-end gap-2">
+              <button onClick={() => setEditingProject(null)} className="px-4 py-2 text-gray-600 font-medium hover:bg-gray-100 rounded-lg transition">Cancel</button>
+              <button disabled={isActionLoading} onClick={saveProjectEdit} className="px-6 py-2 bg-navy text-white font-bold rounded-lg hover:bg-navy/90 transition disabled:opacity-50">
+                {isActionLoading ? "Saving..." : "Save Changes"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

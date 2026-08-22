@@ -1,10 +1,11 @@
 import bcrypt from "bcryptjs";
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
+import { NextResponse } from "next/server";
 
-const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || "certitask_secret_key_neon_db_2026_super_secure"
-);
+const jwtSecret = process.env.JWT_SECRET;
+if (!jwtSecret) throw new Error("JWT_SECRET is not configured");
+const JWT_SECRET = new TextEncoder().encode(jwtSecret);
 
 export const COOKIE_NAME = "certitask_session";
 
@@ -69,4 +70,18 @@ export async function getSession(): Promise<SessionPayload | null> {
   const token = cookieStore.get(COOKIE_NAME)?.value;
   if (!token) return null;
   return verifyToken(token);
+}
+
+export async function requireAdmin(): Promise<SessionPayload | NextResponse> {
+  const session = await getSession();
+
+  if (!session) {
+    return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+  }
+
+  if (session.role !== "ADMIN") {
+    return NextResponse.json({ error: "Administrator access required" }, { status: 403 });
+  }
+
+  return session;
 }

@@ -1,49 +1,50 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { jwtVerify } from "jose";
+import { COOKIE_NAME, verifyToken } from "@/lib/auth";
 
-const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || "certitask_secret_key_neon_db_2026_super_secure"
-);
-
-const COOKIE_NAME = "certitask_session";
+function matchesPath(pathname: string, basePath: string) {
+  return pathname === basePath || pathname.startsWith(`${basePath}/`);
+}
 
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  const isPublicRoute =
-    pathname.startsWith("/auth/login") ||
-    pathname.startsWith("/auth/signup") ||
-    pathname.startsWith("/auth/forgot-password") ||
-    pathname.startsWith("/auth/reset-password");
+  const isPublicRoute = [
+    "/auth/login",
+    "/auth/signup",
+    "/auth/forgot-password",
+    "/auth/reset-password",
+  ].some((path) => matchesPath(pathname, path));
 
-  const isCompanyRoute = pathname.startsWith("/company");
-  const isStudentRoute = pathname.startsWith("/student");
+  const isCompanyRoute = matchesPath(pathname, "/company");
+  const isStudentRoute = matchesPath(pathname, "/student");
+  const isAdminRoute = matchesPath(pathname, "/admin") && !matchesPath(pathname, "/admin/login");
+
+  // Bypass proxy for static/api routes if they somehow match, but config.matcher handles this
+  // Not strictly needed here, but safe to keep checking if desired.
 
   const token = req.cookies.get(COOKIE_NAME)?.value;
-  let sessionPayload: { userId: string; role: string; name: string } | null = null;
+  let sessionPayload: Awaited<ReturnType<typeof verifyToken>> = null;
 
   if (token) {
-    try {
-      const { payload } = await jwtVerify(token, JWT_SECRET);
-      sessionPayload = payload as unknown as {
-        userId: string;
-        role: string;
-        name: string;
-      };
-    } catch {
-      sessionPayload = null;
-    }
+    sessionPayload = await verifyToken(token);
   }
 
-  /* 1. Not logged in & accessing protected dashboard route -> redirect to login */
-  if (!sessionPayload && (isCompanyRoute || isStudentRoute)) {
-    const loginUrl = new URL("/auth/login", req.url);
-    return NextResponse.redirect(loginUrl);
+  /* 1. Not logged in & accessing protected route -> redirect to login */
+  if (!sessionPayload) {
+    if (isAdminRoute) {
+      return NextResponse.redirect(new URL("/admin/login", req.url));
+    }
+    if (isCompanyRoute || isStudentRoute) {
+      return NextResponse.redirect(new URL("/auth/login", req.url));
+    }
   }
 
   /* 2. Logged in & visiting auth page -> redirect to appropriate dashboard */
   if (sessionPayload && isPublicRoute) {
+    if (sessionPayload.role === "ADMIN") {
+      return NextResponse.redirect(new URL("/admin/dashboard", req.url));
+    }
     const dest =
       sessionPayload.role === "STUDENT"
         ? "/student/dashboard"
@@ -53,11 +54,16 @@ export async function proxy(req: NextRequest) {
 
   /* 3. Role protection guard */
   if (sessionPayload) {
-    if (isCompanyRoute && sessionPayload.role !== "COMPANY") {
-      return NextResponse.redirect(new URL("/student/dashboard", req.url));
+    const role = sessionPayload.role;
+
+    if (isCompanyRoute && role !== "COMPANY") {
+      return NextResponse.redirect(new URL("/auth/login", req.url));
     }
-    if (isStudentRoute && sessionPayload.role !== "STUDENT") {
-      return NextResponse.redirect(new URL("/company/dashboard", req.url));
+    if (isStudentRoute && role !== "STUDENT") {
+      return NextResponse.redirect(new URL("/auth/login", req.url));
+    }
+    if (isAdminRoute && role !== "ADMIN") {
+      return NextResponse.redirect(new URL("/admin/login", req.url));
     }
   }
 

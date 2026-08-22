@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { createToken, setAuthCookie } from "@/lib/auth";
 
-const ADMIN_EMAIL = (process.env.SUPER_ADMIN_EMAIL || "admin@certitask.com").toLowerCase();
-const ADMIN_PASSWORD = process.env.SUPER_ADMIN_PASSWORD || "CertiAdmin@2026";
+const ADMIN_EMAIL = process.env.SUPER_ADMIN_EMAIL?.toLowerCase();
+const ADMIN_PASSWORD = process.env.SUPER_ADMIN_PASSWORD;
 
 export async function POST(req: Request) {
   try {
@@ -17,7 +17,7 @@ export async function POST(req: Request) {
 
     const cleanEmail = email.toLowerCase().trim();
 
-    if (cleanEmail === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
+    if (ADMIN_EMAIL && ADMIN_PASSWORD && cleanEmail === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
       const token = await createToken({
         userId: "super-admin",
         email: ADMIN_EMAIL,
