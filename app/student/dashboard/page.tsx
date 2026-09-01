@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 interface Project {
@@ -60,7 +61,7 @@ interface Certificate {
 
 export default function StudentDashboard() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<"projects" | "applications" | "submissions" | "certificates" | "pathway">("projects");
+  const [activeTab, setActiveTab] = useState<"projects" | "applications" | "submissions" | "certificates" | "profile" | "pathway">("projects");
 
   // User Profile & Database states
   const [userName, setUserName] = useState<string>("Learner");
@@ -254,6 +255,7 @@ export default function StudentDashboard() {
             { id: "applications", label: `My Applications (${applications.length})` },
             { id: "submissions", label: `My Submissions (${submissions.length})` },
             { id: "certificates", label: `Earned Certificates (${certificates.length})` },
+            { id: "profile", label: "My Profile" },
             { id: "pathway", label: "Accreditation Timeline" },
           ].map((tab) => (
             <button
@@ -481,7 +483,77 @@ export default function StudentDashboard() {
             </div>
           )}
 
-          {/* ── TAB 5: PATHWAY ROADMAP ────────────────────────── */}
+          {/* ── TAB 5: STUDENT PROFILE PAGE ──────────────────────── */}
+          {activeTab === "profile" && (
+            <div>
+              <h2 style={{ fontSize: 22, fontWeight: 800, color: "var(--navy)", marginBottom: 6 }}>My Student Profile</h2>
+              <p style={{ fontSize: 14, color: "var(--ink-muted)", marginBottom: 24 }}>View and manage your public profile, verify CNIC, and add your qualifications.</p>
+
+              <div style={{ border: "1px solid var(--border)", borderRadius: 12, padding: 24, background: "#F8FAFC", marginBottom: 24 }}>
+                <div style={{ display: "flex", gap: 16, alignItems: "center", marginBottom: 16 }}>
+                  <div style={{ width: 64, height: 64, borderRadius: "50%", background: "var(--gold)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28, fontWeight: 800, color: "var(--navy)" }}>
+                    {userName.charAt(0).toUpperCase()}
+                  </div>
+                  <div>
+                    <h3 style={{ fontSize: 18, fontWeight: 800, color: "var(--navy)" }}>{userName}</h3>
+                    <p style={{ fontSize: 13, color: "var(--ink-muted)" }}>{userEmail}</p>
+                  </div>
+                </div>
+
+                <div style={{ borderTop: "1px solid var(--border)", paddingTop: 16, marginBottom: 16 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                    <div>
+                      <span style={{ fontSize: 12, color: "var(--ink-subtle)" }}>Applications</span>
+                      <div style={{ fontSize: 24, fontWeight: 800, color: "var(--navy)", marginTop: 4 }}>{applications.length}</div>
+                    </div>
+                    <div>
+                      <span style={{ fontSize: 12, color: "var(--ink-subtle)" }}>Submissions</span>
+                      <div style={{ fontSize: 24, fontWeight: 800, color: "var(--navy)", marginTop: 4 }}>{submissions.length}</div>
+                    </div>
+                    <div>
+                      <span style={{ fontSize: 12, color: "var(--ink-subtle)" }}>Certificates Earned</span>
+                      <div style={{ fontSize: 24, fontWeight: 800, color: "var(--success)", marginTop: 4 }}>{certificates.length}</div>
+                    </div>
+                    <div>
+                      <span style={{ fontSize: 12, color: "var(--ink-subtle)" }}>CNIC Verification</span>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: "#E53E3E", marginTop: 4, display: "inline-flex", alignItems: "center", gap: 4, background: "rgba(229,62,62,0.12)", padding: "4px 8px", borderRadius: 4 }}>
+                        ✗ Not Verified
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ background: "#FFF5E6", border: "1px solid var(--gold)", borderRadius: 8, padding: 12, marginBottom: 16 }}>
+                  <p style={{ fontSize: 12, color: "#744210", fontWeight: 600 }}>
+                    ⚠️ Your CNIC verification is pending. Complete your profile to enable employer verification.
+                  </p>
+                </div>
+
+                <div style={{ marginTop: 16, display: 'flex', gap: 12 }}>
+                  <Link href=\"/student/profile\" className=\"btn-primary\" style={{ padding: '10px 16px', fontWeight: 700, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6, background: 'var(--navy)', color: 'white', borderRadius: '6px', cursor: 'pointer', fontSize: 14 }}>
+                    📝 Complete Full Profile
+                  </Link>
+                  <Link href={`/students/${userEmail.split('@')[0]}`} className=\"btn-ghost\" style={{ padding: '10px 16px', fontWeight: 700, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6, border: '1px solid var(--border)', borderRadius: '6px', cursor: 'pointer', fontSize: 14 }}>
+                    👁️ View Public Profile
+                  </Link>
+                </div>
+              </div>
+
+              <div style={{ background: "#F0F9FF", border: "1px solid #0EA5E9", borderRadius: 12, padding: 16 }}>
+                <h4 style={{ fontSize: 13, fontWeight: 700, color: "#0369A1", marginBottom: 8 }}>📋 Profile Checklist</h4>
+                <ul style={{ fontSize: 12, color: "#0369A1", lineHeight: 1.8 }}>
+                  <li>✓ Email registered</li>
+                  <li>✗ CNIC verified</li>
+                  <li>✗ Education details added</li>
+                  <li>✗ Skills added</li>
+                  <li>✗ Portfolio URL added</li>
+                  <li>✗ Phone number verified</li>
+                </ul>
+              </div>
+            </div>
+          )}
+
+          {/* ── TAB 6: PATHWAY ROADMAP ────────────────────────── */}
           {activeTab === "pathway" && (
             <div>
               <h2 style={{ fontSize: 18, fontWeight: 700, color: "var(--navy)", marginBottom: 6 }}>Accreditation Timeline</h2>

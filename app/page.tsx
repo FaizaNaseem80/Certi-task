@@ -10,6 +10,13 @@ export default async function Home() {
     where: { role: "COMPANY" },
     take: 3,
     orderBy: { createdAt: "desc" },
+    select: {
+      id: true,
+      name: true,
+      domain: true,
+      bio: true,
+      website: true,
+    },
   });
 
   const featuredCompanies = dbCompanies.map((c) => ({

@@ -12,18 +12,42 @@ enum Role {
 }
 
 model User {
-  id         String   @id @default(uuid())
-  email      String   @unique
-  name       String
-  password   String
-  role       Role     @default(COMPANY)
-  isVerified Boolean  @default(true)
-  domain     String?
-  logoUrl    String?
-  bio        String?
-  website    String?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id                  String   @id @default(uuid())
+  email               String   @unique
+  name                String
+  password            String
+  role                Role     @default(COMPANY)
+  isVerified          Boolean  @default(true)
+  domain              String?
+  logoUrl             String?
+  bio                 String?
+  website             String?
+  phone               String?
+  location            String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  // Company-specific fields
+  companySize         String?  // e.g., "1-50", "51-200", "201-1000", etc.
+  industry            String?  // e.g., "Technology", "Finance", etc.
+  foundedYear         Int?
+  companyDescription  String?
+  companyWebsite      String?
+  linkedinUrl         String?
+
+  // Student-specific fields
+  cnicNumber          String?  @unique
+  cnicVerified        Boolean  @default(false)
+  cnicUploadUrl       String?  // URL to uploaded CNIC document
+  dateOfBirth         String?
+  gender              String?  // Male, Female, Other
+  universityName      String?
+  degreeProgram       String?
+  currentSemester     String?
+  gpa                 Float?
+  skillsArray         String?  // JSON array of skills
+  portfolioUrl        String?
+  resumeUrl           String?
 
   projects           Project[]     @relation("CompanyProjects")
   applications       Application[] @relation("StudentApplications")

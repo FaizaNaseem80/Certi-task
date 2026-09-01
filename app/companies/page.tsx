@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Link from "next/link";
 import { Button } from "@/components/Button";
 
 interface Company {
@@ -184,12 +185,12 @@ export default function CompaniesPage() {
                         </span>
                         <span className="font-semibold text-gold">{company.jobsCount} open roles</span>
                       </div>
-                      <button
-                        onClick={() => alert(`Redirecting to details page for ${company.name} (API and Profile details are mock for this phase)`)}
-                        className="w-full py-2.5 rounded-lg border border-navy/15 text-navy text-xs font-bold hover:bg-navy hover:text-paper hover:border-navy transition-all duration-300 cursor-pointer text-center"
+                      <Link
+                        href={`/companies/${company.id}`}
+                        className="w-full py-2.5 rounded-lg border border-navy/15 text-navy text-xs font-bold hover:bg-navy hover:text-paper hover:border-navy transition-all duration-300 cursor-pointer text-center inline-block"
                       >
                         View Company
-                      </button>
+                      </Link>
                     </div>
                   </div>
                 ))}

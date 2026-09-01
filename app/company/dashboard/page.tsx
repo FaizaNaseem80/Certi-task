@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 interface Project {
@@ -742,7 +743,8 @@ export default function CompanyDashboard() {
                 </div>
 
                 <div style={{ marginTop: 16, display: 'flex', gap: 12 }}>
-                  <button onClick={handleSaveProfile} className="btn-primary" style={{ padding: '8px 14px', fontWeight: 700 }}>Save Profile</button>
+                  <Link href="/company/profile" className="btn-primary" style={{ padding: '8px 14px', fontWeight: 700, textDecoration: 'none', display: 'inline-block', background: 'var(--navy)', color: 'white', borderRadius: '6px', cursor: 'pointer' }}>Edit Full Profile</Link>
+                  <button onClick={handleSaveProfile} className="btn-primary" style={{ padding: '8px 14px', fontWeight: 700 }}>Save Changes</button>
                   <button onClick={() => { setProfileForm({ name: userProfile.name, bio: userProfile.bio, website: userProfile.website }); alert('Reverted to saved profile'); }} className="btn-ghost" style={{ padding: '8px 14px', fontWeight: 700 }}>Revert</button>
                 </div>
               </div>
