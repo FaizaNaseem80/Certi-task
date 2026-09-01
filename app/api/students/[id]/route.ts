@@ -14,7 +14,6 @@ export async function GET(
         name: true,
         email: true,
         bio: true,
-        phone: true,
         dateOfBirth: true,
         gender: true,
         universityName: true,

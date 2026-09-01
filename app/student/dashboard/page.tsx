@@ -66,6 +66,8 @@ export default function StudentDashboard() {
   // User Profile & Database states
   const [userName, setUserName] = useState<string>("Learner");
   const [userEmail, setUserEmail] = useState<string>("");
+  const [cnicVerified, setCnicVerified] = useState(false);
+  const [profileData, setProfileData] = useState<{ universityName?: string; skillsArray?: string; portfolioUrl?: string; phone?: string; bio?: string } | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
   const [applications, setApplications] = useState<Application[]>([]);
   const [submissions, setSubmissions] = useState<Submission[]>([]);
@@ -104,6 +106,14 @@ export default function StudentDashboard() {
       if (userData.user) {
         setUserName(userData.user.name);
         setUserEmail(userData.user.email);
+      }
+
+      // Fetch full profile for CNIC status and checklist
+      const profileRes = await fetch("/api/auth/profile");
+      const profileJson = await profileRes.json();
+      if (profileJson.user) {
+        setCnicVerified(!!profileJson.user.cnicVerified);
+        setProfileData(profileJson.user);
       }
 
       const projRes = await fetch("/api/projects");
@@ -516,24 +526,40 @@ export default function StudentDashboard() {
                     </div>
                     <div>
                       <span style={{ fontSize: 12, color: "var(--ink-subtle)" }}>CNIC Verification</span>
-                      <div style={{ fontSize: 12, fontWeight: 700, color: "#E53E3E", marginTop: 4, display: "inline-flex", alignItems: "center", gap: 4, background: "rgba(229,62,62,0.12)", padding: "4px 8px", borderRadius: 4 }}>
-                        ✗ Not Verified
-                      </div>
+                      {cnicVerified ? (
+                        <div style={{ fontSize: 12, fontWeight: 700, color: "#276749", marginTop: 4, display: "inline-flex", alignItems: "center", gap: 4, background: "rgba(56,161,105,0.12)", padding: "4px 8px", borderRadius: 4 }}>
+                          ✓ Verified
+                        </div>
+                      ) : (
+                        <div style={{ fontSize: 12, fontWeight: 700, color: "#E53E3E", marginTop: 4, display: "inline-flex", alignItems: "center", gap: 4, background: "rgba(229,62,62,0.12)", padding: "4px 8px", borderRadius: 4 }}>
+                          ✗ Not Verified
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
 
-                <div style={{ background: "#FFF5E6", border: "1px solid var(--gold)", borderRadius: 8, padding: 12, marginBottom: 16 }}>
-                  <p style={{ fontSize: 12, color: "#744210", fontWeight: 600 }}>
-                    ⚠️ Your CNIC verification is pending. Complete your profile to enable employer verification.
-                  </p>
-                </div>
+                {!cnicVerified && (
+                  <div style={{ background: "#FFF5E6", border: "1px solid var(--gold)", borderRadius: 8, padding: 12, marginBottom: 16 }}>
+                    <p style={{ fontSize: 12, color: "#744210", fontWeight: 600 }}>
+                      ⚠️ Your CNIC verification is pending. Complete your profile to enable employer verification.
+                    </p>
+                  </div>
+                )}
+
+                {cnicVerified && (
+                  <div style={{ background: "rgba(56,161,105,0.06)", border: "1px solid rgba(56,161,105,0.2)", borderRadius: 8, padding: 12, marginBottom: 16 }}>
+                    <p style={{ fontSize: 12, color: "#276749", fontWeight: 600 }}>
+                      ✓ Your CNIC has been submitted and verified. Employers can see your verified status.
+                    </p>
+                  </div>
+                )}
 
                 <div style={{ marginTop: 16, display: 'flex', gap: 12 }}>
-                  <Link href=\"/student/profile\" className=\"btn-primary\" style={{ padding: '10px 16px', fontWeight: 700, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6, background: 'var(--navy)', color: 'white', borderRadius: '6px', cursor: 'pointer', fontSize: 14 }}>
+                  <Link href="/student/profile" className="btn-primary" style={{ padding: '10px 16px', fontWeight: 700, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6, background: 'var(--navy)', color: 'white', borderRadius: '6px', cursor: 'pointer', fontSize: 14 }}>
                     📝 Complete Full Profile
                   </Link>
-                  <Link href={`/students/${userEmail.split('@')[0]}`} className=\"btn-ghost\" style={{ padding: '10px 16px', fontWeight: 700, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6, border: '1px solid var(--border)', borderRadius: '6px', cursor: 'pointer', fontSize: 14 }}>
+                  <Link href={`/students/${userEmail.split('@')[0]}`} className="btn-ghost" style={{ padding: '10px 16px', fontWeight: 700, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6, border: '1px solid var(--border)', borderRadius: '6px', cursor: 'pointer', fontSize: 14 }}>
                     👁️ View Public Profile
                   </Link>
                 </div>
@@ -541,13 +567,13 @@ export default function StudentDashboard() {
 
               <div style={{ background: "#F0F9FF", border: "1px solid #0EA5E9", borderRadius: 12, padding: 16 }}>
                 <h4 style={{ fontSize: 13, fontWeight: 700, color: "#0369A1", marginBottom: 8 }}>📋 Profile Checklist</h4>
-                <ul style={{ fontSize: 12, color: "#0369A1", lineHeight: 1.8 }}>
-                  <li>✓ Email registered</li>
-                  <li>✗ CNIC verified</li>
-                  <li>✗ Education details added</li>
-                  <li>✗ Skills added</li>
-                  <li>✗ Portfolio URL added</li>
-                  <li>✗ Phone number verified</li>
+                <ul style={{ fontSize: 12, color: "#0369A1", lineHeight: 1.8, listStyle: "none", padding: 0 }}>
+                  <li>{userEmail ? "✓" : "✗"} Email registered</li>
+                  <li>{cnicVerified ? "✓" : "✗"} CNIC verified</li>
+                  <li>{profileData?.universityName ? "✓" : "✗"} Education details added</li>
+                  <li>{profileData?.skillsArray ? "✓" : "✗"} Skills added</li>
+                  <li>{profileData?.portfolioUrl ? "✓" : "✗"} Portfolio URL added</li>
+                  <li>{profileData?.phone ? "✓" : "✗"} Phone number added</li>
                 </ul>
               </div>
             </div>

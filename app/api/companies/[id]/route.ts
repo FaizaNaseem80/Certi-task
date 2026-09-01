@@ -17,7 +17,6 @@ export async function GET(
         domain: true,
         website: true,
         logoUrl: true,
-        phone: true,
         location: true,
         companySize: true,
         industry: true,

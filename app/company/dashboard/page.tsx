@@ -56,7 +56,7 @@ export default function CompanyDashboard() {
   const [activeTab, setActiveTab] = useState<"overview" | "post-project" | "applications" | "submissions" | "certificates" | "billing" | "profile">("overview");
 
   // User & DB states
-  const [userProfile, setUserProfile] = useState<{ name: string; email: string; domain: string; isVerified: boolean; bio: string; website: string } | null>(null);
+  const [userProfile, setUserProfile] = useState<{ name: string; email: string; domain: string; isVerified: boolean; bio: string; website: string; industry: string; companySize: string; location: string; linkedinUrl: string; foundedYear: string; companyDescription: string } | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
   const [applications, setApplications] = useState<Application[]>([]);
   const [submissions, setSubmissions] = useState<Submission[]>([]);
@@ -81,6 +81,11 @@ export default function CompanyDashboard() {
     name: "",
     bio: "",
     website: "",
+    industry: "",
+    companySize: "",
+    location: "",
+    linkedinUrl: "",
+    companyDescription: "",
   });
 
   const [feedbackText, setFeedbackText] = useState("");
@@ -96,19 +101,36 @@ export default function CompanyDashboard() {
     try {
       const userRes = await fetch("/api/auth/me");
       const userData = await userRes.json();
+
+      // Fetch full profile for additional company fields
+      const profileRes = await fetch("/api/auth/profile");
+      const profileJson = await profileRes.json();
+      const p = profileJson.user || {};
+
       if (userData.user) {
         setUserProfile({
           name: userData.user.name,
           email: userData.user.email,
-          domain: userData.user.email.split("@")[1] || "company.com",
-          isVerified: true, // FR-C1: Verified business domain
-          bio: userData.user.bio || "Leading innovation and hiring top student developers.",
-          website: userData.user.website || `https://www.${userData.user.email.split("@")[1] || "company.com"}`,
+          domain: p.domain || userData.user.email.split("@")[1] || "company.com",
+          isVerified: true,
+          bio: p.bio || "",
+          website: p.website || "",
+          industry: p.industry || "",
+          companySize: p.companySize || "",
+          location: p.location || "",
+          linkedinUrl: p.linkedinUrl || "",
+          foundedYear: p.foundedYear ? String(p.foundedYear) : "",
+          companyDescription: p.companyDescription || "",
         });
         setProfileForm({
           name: userData.user.name,
-          bio: userData.user.bio || "Leading innovation and hiring top student developers.",
-          website: userData.user.website || `https://www.${userData.user.email.split("@")[1] || "company.com"}`,
+          bio: p.bio || "",
+          website: p.website || "",
+          industry: p.industry || "",
+          companySize: p.companySize || "",
+          location: p.location || "",
+          linkedinUrl: p.linkedinUrl || "",
+          companyDescription: p.companyDescription || "",
         });
       }
 
@@ -745,7 +767,7 @@ export default function CompanyDashboard() {
                 <div style={{ marginTop: 16, display: 'flex', gap: 12 }}>
                   <Link href="/company/profile" className="btn-primary" style={{ padding: '8px 14px', fontWeight: 700, textDecoration: 'none', display: 'inline-block', background: 'var(--navy)', color: 'white', borderRadius: '6px', cursor: 'pointer' }}>Edit Full Profile</Link>
                   <button onClick={handleSaveProfile} className="btn-primary" style={{ padding: '8px 14px', fontWeight: 700 }}>Save Changes</button>
-                  <button onClick={() => { setProfileForm({ name: userProfile.name, bio: userProfile.bio, website: userProfile.website }); alert('Reverted to saved profile'); }} className="btn-ghost" style={{ padding: '8px 14px', fontWeight: 700 }}>Revert</button>
+                  <button onClick={() => { setProfileForm({ name: userProfile.name, bio: userProfile.bio, website: userProfile.website, industry: userProfile.industry, companySize: userProfile.companySize, location: userProfile.location, linkedinUrl: userProfile.linkedinUrl, companyDescription: userProfile.companyDescription }); alert('Reverted to saved profile'); }} className="btn-ghost" style={{ padding: '8px 14px', fontWeight: 700 }}>Revert</button>
                 </div>
               </div>
             </div>

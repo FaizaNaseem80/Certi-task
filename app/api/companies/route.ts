@@ -5,7 +5,22 @@ export async function GET() {
   try {
     const companies = await prisma.user.findMany({
       where: { role: "COMPANY" },
-      include: {
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        bio: true,
+        domain: true,
+        website: true,
+        logoUrl: true,
+        location: true,
+        companySize: true,
+        industry: true,
+        foundedYear: true,
+        companyDescription: true,
+        companyWebsite: true,
+        linkedinUrl: true,
+        createdAt: true,
         _count: {
           select: { projects: { where: { status: "Active" } } }
         }
