@@ -95,10 +95,11 @@ export default function StudentProfilePage() {
     // Client-side validation
     const newErrors: Record<string, string> = {};
     if (!formData.name.trim()) newErrors.name = "Full name is required";
-    if (!formData.universityName.trim()) newErrors.universityName = "University name is required";
-    if (!formData.degreeProgram.trim()) newErrors.degreeProgram = "Degree program is required";
-    if (formData.cnicNumber && !validateCNIC(formData.cnicNumber)) {
-      newErrors.cnicNumber = "Invalid CNIC format. Use: XXXXX-XXXXXXX-X";
+    if (formData.cnicNumber) {
+      const cleanDigits = formData.cnicNumber.replace(/\D/g, "");
+      if (!validateCNIC(formData.cnicNumber) && cleanDigits.length !== 13) {
+        newErrors.cnicNumber = "Enter 13-digit CNIC (e.g., 12345-1234567-1 or 1234512345671)";
+      }
     }
 
     if (Object.keys(newErrors).length > 0) {

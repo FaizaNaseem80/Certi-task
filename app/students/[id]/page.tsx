@@ -87,7 +87,16 @@ export default function StudentProfilePage() {
       </div>
     );
 
-  const skills = student.skillsArray ? JSON.parse(student.skillsArray) : [];
+  let skills: string[] = [];
+  if (student?.skillsArray) {
+    try {
+      const parsed = JSON.parse(student.skillsArray);
+      skills = Array.isArray(parsed) ? parsed : String(parsed).split(',').map((s) => s.trim()).filter(Boolean);
+    } catch {
+      skills = student.skillsArray.split(',').map((s) => s.trim()).filter(Boolean);
+    }
+  }
+
   const age = student.dateOfBirth 
     ? Math.floor((new Date().getTime() - new Date(student.dateOfBirth).getTime()) / (1000 * 60 * 60 * 24 * 365.25))
     : null;

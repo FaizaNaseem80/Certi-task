@@ -15,8 +15,13 @@ export async function GET(
   const { id } = await params;
 
   // Find certificate
-  const certificate = await prisma.certificate.findUnique({
-    where: { id },
+  const certificate = await prisma.certificate.findFirst({
+    where: {
+      OR: [
+        { id },
+        { certId: id }
+      ]
+    },
     include: { company: true }
   });
 

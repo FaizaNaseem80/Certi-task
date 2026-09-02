@@ -6,18 +6,30 @@ import { Button } from "@/components/Button";
 
 
 export default async function Home() {
-  const dbCompanies = await prisma.user.findMany({
-    where: { role: "COMPANY" },
-    take: 3,
-    orderBy: { createdAt: "desc" },
-    select: {
-      id: true,
-      name: true,
-      domain: true,
-      bio: true,
-      website: true,
-    },
-  });
+  let dbCompanies: Array<{
+    id: string;
+    name: string;
+    domain: string | null;
+    bio: string | null;
+    website: string | null;
+  }> = [];
+
+  try {
+    dbCompanies = await prisma.user.findMany({
+      where: { role: "COMPANY" },
+      take: 3,
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        name: true,
+        domain: true,
+        bio: true,
+        website: true,
+      },
+    });
+  } catch (error) {
+    console.error("Failed to fetch featured companies from database:", error);
+  }
 
   const featuredCompanies = dbCompanies.map((c) => ({
     name: c.name,

@@ -25,7 +25,9 @@ export default function CompanyProfilePage() {
     companyWebsite: "",
     domain: "",
     logoUrl: "",
+    cnicNumber: "",
   });
+  const [cnicVerified, setCnicVerified] = useState(false);
 
   // Load existing profile on mount
   useEffect(() => {
@@ -52,7 +54,9 @@ export default function CompanyProfilePage() {
             companyWebsite: data.user.companyWebsite || "",
             domain: data.user.domain || "",
             logoUrl: data.user.logoUrl || "",
+            cnicNumber: data.user.cnicNumber || "",
           });
+          setCnicVerified(!!data.user.cnicVerified);
         }
       } catch (err) {
         console.error("Failed to load profile:", err);
@@ -92,6 +96,7 @@ export default function CompanyProfilePage() {
           linkedinUrl: formData.linkedinUrl,
           companyDescription: formData.companyDescription,
           companyWebsite: formData.companyWebsite,
+          cnicNumber: formData.cnicNumber,
         }),
       });
 
@@ -183,10 +188,19 @@ export default function CompanyProfilePage() {
                     placeholder="e.g., software, consulting" />
                 </div>
                 <div>
-                  <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "var(--navy)", marginBottom: 6 }}>Logo URL</label>
+                  <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "var(--navy)", marginBottom: 6 }}>Profile Picture / Logo URL</label>
                   <input type="url" name="logoUrl" value={formData.logoUrl} onChange={handleChange}
                     style={{ width: "100%", padding: "10px 14px", border: "1px solid var(--border)", borderRadius: 8, fontSize: 14, outline: "none" }}
-                    placeholder="https://example.com/logo.png" />
+                    placeholder="https://example.com/profile-picture.png" />
+                </div>
+                <div style={{ gridColumn: "1 / -1" }}>
+                  <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "var(--navy)", marginBottom: 6 }}>CNIC Verification <span style={{ color: "var(--ink-subtle)", fontWeight: 400 }}>(Optional)</span></label>
+                  <input type="text" name="cnicNumber" value={formData.cnicNumber} onChange={handleChange} disabled={cnicVerified}
+                    style={{ width: "100%", padding: "10px 14px", border: "1px solid var(--border)", borderRadius: 8, fontSize: 14, outline: "none", background: cnicVerified ? "#f7f8fa" : "#fff" }}
+                    placeholder="12345-1234567-1" />
+                  <p style={{ fontSize: 12, color: cnicVerified ? "#276749" : "var(--ink-subtle)", marginTop: 4 }}>
+                    {cnicVerified ? "CNIC verified" : "Enter your 13-digit CNIC to verify your company profile."}
+                  </p>
                 </div>
               </div>
             </div>

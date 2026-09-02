@@ -85,14 +85,8 @@ export const Navbar = () => {
             })}
           </div>
 
-          {/* Login and Get Started Buttons */}
+          {/* Get Started Button */}
           <div className="hidden md:flex items-center space-x-3">
-            <Link
-              href="/auth/login"
-              className="text-paper/85 hover:text-gold text-sm font-semibold tracking-wide transition-colors px-3 py-2 cursor-pointer"
-            >
-              Login
-            </Link>
             <Button href="/auth/login" variant="gold">
               Get Started
             </Button>
@@ -172,13 +166,6 @@ export const Navbar = () => {
             );
           })}
           <div className="pt-4 pb-2 border-t border-paper/10 px-3 flex flex-col gap-2">
-            <Link
-              href="/auth/login"
-              onClick={() => setIsOpen(false)}
-              className="text-center text-paper/85 hover:text-gold py-2.5 font-semibold text-sm cursor-pointer"
-            >
-              Login
-            </Link>
             <Button
               href="/auth/login"
               variant="gold"

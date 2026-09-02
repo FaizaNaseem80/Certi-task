@@ -7,8 +7,15 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const student = await prisma.user.findUnique({
-      where: { id, role: "STUDENT" },
+    const student = await prisma.user.findFirst({
+      where: {
+        role: "STUDENT",
+        OR: [
+          { id },
+          { email: id },
+          { email: { startsWith: `${id}@` } },
+        ],
+      },
       select: {
         id: true,
         name: true,

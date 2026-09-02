@@ -67,14 +67,29 @@ export async function PATCH(req: Request) {
       if (payload[f] !== undefined) allowed[f] = String(payload[f]).trim();
     }
 
+    const role = (session.role || '').toUpperCase();
+
     // Company-specific fields
-    if (session.role === 'COMPANY') {
+    if (role === 'COMPANY') {
       const companyFields = ['companySize', 'industry', 'companyDescription', 'companyWebsite', 'linkedinUrl'];
       for (const f of companyFields) {
         if (payload[f] !== undefined) allowed[f] = String(payload[f]).trim();
       }
-      if (payload.foundedYear !== undefined) {
-        const yr = parseInt(payload.foundedYear);
+      if (payload.cnicNumber !== undefined) {
+        const cnic = String(payload.cnicNumber).trim();
+        if (/^\d{5}-\d{7}-\d{1}$/.test(cnic)) {
+          allowed.cnicNumber = cnic;
+          allowed.cnicVerified = true;
+        } else if (cnic.length > 0) {
+          const digits = cnic.replace(/\D/g, '');
+          if (digits.length === 13) {
+            allowed.cnicNumber = `${digits.slice(0, 5)}-${digits.slice(5, 12)}-${digits.slice(12)}`;
+            allowed.cnicVerified = true;
+          }
+        }
+      }
+      if (payload.foundedYear !== undefined && payload.foundedYear !== null && payload.foundedYear !== '') {
+        const yr = parseInt(String(payload.foundedYear));
         if (!isNaN(yr) && yr >= 1800 && yr <= new Date().getFullYear()) {
           allowed.foundedYear = yr;
         }
@@ -82,16 +97,23 @@ export async function PATCH(req: Request) {
     }
 
     // Student-specific fields
-    if (session.role === 'STUDENT') {
+    if (role === 'STUDENT') {
       const studentStringFields = [
         'dateOfBirth', 'gender', 'universityName', 'degreeProgram',
-        'currentSemester', 'skillsArray', 'portfolioUrl', 'resumeUrl',
+        'currentSemester', 'portfolioUrl', 'resumeUrl',
       ];
       for (const f of studentStringFields) {
         if (payload[f] !== undefined) allowed[f] = String(payload[f]).trim();
       }
-      if (payload.gpa !== undefined) {
-        const g = parseFloat(payload.gpa);
+
+      // Handle both skills and skillsArray
+      const skillsInput = payload.skillsArray !== undefined ? payload.skillsArray : payload.skills;
+      if (skillsInput !== undefined) {
+        allowed.skillsArray = String(skillsInput).trim();
+      }
+
+      if (payload.gpa !== undefined && payload.gpa !== null && payload.gpa !== '') {
+        const g = parseFloat(String(payload.gpa));
         if (!isNaN(g) && g >= 0 && g <= 4) {
           allowed.gpa = g;
         }
@@ -99,10 +121,16 @@ export async function PATCH(req: Request) {
       // CNIC number submission — once submitted it marks cnicVerified as true
       if (payload.cnicNumber !== undefined) {
         const cnic = String(payload.cnicNumber).trim();
-        // Validate Pakistani CNIC format: XXXXX-XXXXXXX-X
         if (/^\d{5}-\d{7}-\d{1}$/.test(cnic)) {
           allowed.cnicNumber = cnic;
           allowed.cnicVerified = true;
+        } else if (cnic.length > 0) {
+          const digits = cnic.replace(/\D/g, '');
+          if (digits.length === 13) {
+            const formatted = `${digits.slice(0, 5)}-${digits.slice(5, 12)}-${digits.slice(12)}`;
+            allowed.cnicNumber = formatted;
+            allowed.cnicVerified = true;
+          }
         }
       }
     }

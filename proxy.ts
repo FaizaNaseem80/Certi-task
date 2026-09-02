@@ -9,7 +9,7 @@ function matchesPath(pathname: string, basePath: string) {
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  const isPublicRoute = [
+  const isPublicAuthRoute = [
     "/auth/login",
     "/auth/signup",
     "/auth/forgot-password",
@@ -20,9 +20,6 @@ export async function proxy(req: NextRequest) {
   const isStudentRoute = matchesPath(pathname, "/student");
   const isAdminRoute = matchesPath(pathname, "/admin") && !matchesPath(pathname, "/admin/login");
 
-  // Bypass proxy for static/api routes if they somehow match, but config.matcher handles this
-  // Not strictly needed here, but safe to keep checking if desired.
-
   const token = req.cookies.get(COOKIE_NAME)?.value;
   let sessionPayload: Awaited<ReturnType<typeof verifyToken>> = null;
 
@@ -30,44 +27,66 @@ export async function proxy(req: NextRequest) {
     sessionPayload = await verifyToken(token);
   }
 
-  /* 1. Not logged in & accessing protected route -> redirect to login */
+  /* 1. Unauthenticated user trying to access protected routes */
   if (!sessionPayload) {
     if (isAdminRoute) {
-      return NextResponse.redirect(new URL("/admin/login", req.url));
+      const response = NextResponse.redirect(new URL("/admin/login", req.url));
+      response.headers.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+      return response;
     }
     if (isCompanyRoute || isStudentRoute) {
-      return NextResponse.redirect(new URL("/auth/login", req.url));
+      const response = NextResponse.redirect(new URL("/auth/login", req.url));
+      response.headers.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+      return response;
     }
   }
 
-  /* 2. Logged in & visiting auth page -> redirect to appropriate dashboard */
-  if (sessionPayload && isPublicRoute) {
-    if (sessionPayload.role === "ADMIN") {
-      return NextResponse.redirect(new URL("/admin/dashboard", req.url));
-    }
-    const dest =
-      sessionPayload.role === "STUDENT"
-        ? "/student/dashboard"
-        : "/company/dashboard";
-    return NextResponse.redirect(new URL(dest, req.url));
+  /* 2. Authenticated user visiting auth pages -> redirect to proper dashboard */
+  if (sessionPayload && isPublicAuthRoute) {
+    let dest = "/student/dashboard";
+    if (sessionPayload.role === "ADMIN") dest = "/admin/dashboard";
+    else if (sessionPayload.role === "COMPANY") dest = "/company/dashboard";
+
+    const response = NextResponse.redirect(new URL(dest, req.url));
+    response.headers.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+    return response;
   }
 
-  /* 3. Role protection guard */
+  /* 3. Role enforcement & cross-role isolation */
   if (sessionPayload) {
     const role = sessionPayload.role;
 
     if (isCompanyRoute && role !== "COMPANY") {
-      return NextResponse.redirect(new URL("/auth/login", req.url));
+      const dest = role === "STUDENT" ? "/student/dashboard" : "/admin/dashboard";
+      const response = NextResponse.redirect(new URL(dest, req.url));
+      response.headers.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+      return response;
     }
+
     if (isStudentRoute && role !== "STUDENT") {
-      return NextResponse.redirect(new URL("/auth/login", req.url));
+      const dest = role === "COMPANY" ? "/company/dashboard" : "/admin/dashboard";
+      const response = NextResponse.redirect(new URL(dest, req.url));
+      response.headers.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+      return response;
     }
+
     if (isAdminRoute && role !== "ADMIN") {
-      return NextResponse.redirect(new URL("/admin/login", req.url));
+      const dest = role === "STUDENT" ? "/student/dashboard" : "/company/dashboard";
+      const response = NextResponse.redirect(new URL(dest, req.url));
+      response.headers.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+      return response;
     }
   }
 
-  return NextResponse.next();
+  /* 4. Attach no-store anti-caching headers to prevent back-button caching of protected pages */
+  const response = NextResponse.next();
+  if (isCompanyRoute || isStudentRoute || isAdminRoute) {
+    response.headers.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+    response.headers.set("Pragma", "no-cache");
+    response.headers.set("Expires", "0");
+  }
+
+  return response;
 }
 
 export default proxy;

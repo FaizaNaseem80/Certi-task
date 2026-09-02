@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
+/* ── Types ── */
 interface Project {
   id: string;
   title: string;
@@ -51,24 +52,91 @@ interface Certificate {
   status: string;
 }
 
+interface CompanyProfile {
+  name: string;
+  email: string;
+  domain?: string;
+  isVerified?: boolean;
+  bio?: string;
+  website?: string;
+  industry?: string;
+  companySize?: string;
+  location?: string;
+  phone?: string;
+  linkedinUrl?: string;
+  foundedYear?: string | number;
+  companyDescription?: string;
+  companyWebsite?: string;
+  logoUrl?: string;
+}
+
+type TabId = "overview" | "post-project" | "projects" | "applications" | "submissions" | "certificates" | "profile" | "billing";
+
+const TABS: { id: TabId; label: string; icon: string }[] = [
+  { id: "overview",     label: "Overview",             icon: "🏢" },
+  { id: "post-project", label: "Post New Project",     icon: "➕" },
+  { id: "projects",     label: "My Projects",          icon: "🚀" },
+  { id: "applications", label: "Student Applications", icon: "📋" },
+  { id: "submissions",  label: "Review Submissions",   icon: "📤" },
+  { id: "certificates", label: "Issued Credentials",   icon: "🏅" },
+  { id: "profile",      label: "Edit Profile",         icon: "✏️" },
+  { id: "billing",      label: "Sponsorship & Badges", icon: "💳" },
+];
+
+/* ── Status Badge ── */
+function StatusBadge({ status }: { status: string }) {
+  const map: Record<string, { bg: string; color: string }> = {
+    Pending:          { bg: "#EDF2F7",                    color: "#4A5568" },
+    Shortlisted:      { bg: "rgba(49,130,206,0.12)",      color: "#2B6CB0" },
+    Selected:         { bg: "rgba(56,161,105,0.12)",      color: "#276749" },
+    Rejected:         { bg: "rgba(229,62,62,0.12)",       color: "#9B2C2C" },
+    Submitted:        { bg: "rgba(49,130,206,0.12)",      color: "#2B6CB0" },
+    Approved:         { bg: "rgba(56,161,105,0.12)",      color: "#276749" },
+    CompanyApproved:  { bg: "rgba(236,201,75,0.18)",      color: "#97640E" },
+    StudentConfirmed: { bg: "rgba(56,161,105,0.12)",      color: "#276749" },
+    Verified:         { bg: "rgba(56,161,105,0.12)",      color: "#276749" },
+    Active:           { bg: "rgba(56,161,105,0.12)",      color: "#276749" },
+    Paused:           { bg: "rgba(236,201,75,0.18)",      color: "#97640E" },
+    Closed:           { bg: "#EDF2F7",                    color: "#4A5568" },
+  };
+  const style = map[status] ?? { bg: "#EDF2F7", color: "#4A5568" };
+  return (
+    <span style={{
+      display: "inline-block",
+      padding: "3px 10px",
+      borderRadius: 20,
+      fontSize: 11,
+      fontWeight: 700,
+      background: style.bg,
+      color: style.color,
+    }}>
+      {status}
+    </span>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════
+   Main Component
+══════════════════════════════════════════════════════════ */
 export default function CompanyDashboard() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<"overview" | "post-project" | "applications" | "submissions" | "certificates" | "billing" | "profile">("overview");
+  const [activeTab, setActiveTab] = useState<TabId>("overview");
 
-  // User & DB states
-  const [userProfile, setUserProfile] = useState<{ name: string; email: string; domain: string; isVerified: boolean; bio: string; website: string; industry: string; companySize: string; location: string; linkedinUrl: string; foundedYear: string; companyDescription: string } | null>(null);
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [applications, setApplications] = useState<Application[]>([]);
-  const [submissions, setSubmissions] = useState<Submission[]>([]);
-  const [certificates, setCertificates] = useState<Certificate[]>([]);
+  /* data states */
+  const [profile, setProfile]             = useState<CompanyProfile | null>(null);
+  const [projects, setProjects]           = useState<Project[]>([]);
+  const [applications, setApplications]   = useState<Application[]>([]);
+  const [submissions, setSubmissions]     = useState<Submission[]>([]);
+  const [certificates, setCertificates]   = useState<Certificate[]>([]);
 
-  // Feedback/UI states
-  const [loading, setLoading] = useState(true);
-  const [showAdConfirmation, setShowAdConfirmation] = useState(false);
-  const [adClickCount, setAdClickCount] = useState(0);
+  /* UI states */
+  const [loading, setLoading]             = useState(true);
+  const [selectedSubId, setSelectedSubId] = useState<string | null>(null);
+  const [feedbackMsg, setFeedbackMsg]     = useState("");
+  const [showRejectModal, setShowRejectModal] = useState(false);
 
-  // Forms states
-  const [projectForm, setProjectForm] = useState({
+  /* post project form */
+  const [projForm, setProjForm] = useState({
     title: "",
     description: "",
     requiredSkills: "",
@@ -76,762 +144,853 @@ export default function CompanyDashboard() {
     deadline: "",
     teamCap: 20,
   });
+  const [projPosting, setProjPosting] = useState(false);
+  const [projSuccess, setProjSuccess] = useState(false);
 
-  const [profileForm, setProfileForm] = useState({
-    name: "",
-    bio: "",
-    website: "",
-    industry: "",
-    companySize: "",
-    location: "",
-    linkedinUrl: "",
-    companyDescription: "",
+  /* profile form */
+  const [pf, setPf] = useState({
+    name: "", bio: "", website: "", industry: "", companySize: "",
+    location: "", phone: "", domain: "", linkedinUrl: "",
+    foundedYear: "", companyDescription: "", companyWebsite: "", logoUrl: "",
   });
+  const [pfSaving, setPfSaving] = useState(false);
+  const [pfSaved, setPfSaved]   = useState(false);
+  const [pfError, setPfError]   = useState("");
 
-  const [feedbackText, setFeedbackText] = useState("");
-  const [selectedSubmissionId, setSelectedSubmissionId] = useState<string | null>(null);
-  const [showRejectModal, setShowRejectModal] = useState(false);
-
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  async function fetchData() {
+  /* ════════════════ Fetch Data ════════════════ */
+  const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const userRes = await fetch("/api/auth/me");
-      const userData = await userRes.json();
+      const [meR, profR, projR, appR, subR, certR] = await Promise.all([
+        fetch("/api/auth/me"),
+        fetch("/api/auth/profile"),
+        fetch("/api/projects"),
+        fetch("/api/applications"),
+        fetch("/api/submissions"),
+        fetch("/api/certificates"),
+      ]);
 
-      // Fetch full profile for additional company fields
-      const profileRes = await fetch("/api/auth/profile");
-      const profileJson = await profileRes.json();
-      const p = profileJson.user || {};
+      const meD   = await meR.json();
+      const profD = await profR.json();
+      const projD = await projR.json();
+      const appD  = await appR.json();
+      const subD  = await subR.json();
+      const certD = await certR.json();
 
-      if (userData.user) {
-        setUserProfile({
-          name: userData.user.name,
-          email: userData.user.email,
-          domain: p.domain || userData.user.email.split("@")[1] || "company.com",
-          isVerified: true,
-          bio: p.bio || "",
-          website: p.website || "",
-          industry: p.industry || "",
-          companySize: p.companySize || "",
-          location: p.location || "",
-          linkedinUrl: p.linkedinUrl || "",
-          foundedYear: p.foundedYear ? String(p.foundedYear) : "",
-          companyDescription: p.companyDescription || "",
-        });
-        setProfileForm({
-          name: userData.user.name,
-          bio: p.bio || "",
-          website: p.website || "",
-          industry: p.industry || "",
-          companySize: p.companySize || "",
-          location: p.location || "",
-          linkedinUrl: p.linkedinUrl || "",
-          companyDescription: p.companyDescription || "",
-        });
-      }
+      if (!meR.ok) { router.push("/auth/login"); return; }
 
-      const projRes = await fetch("/api/projects");
-      const projData = await projRes.json();
-      if (projData.projects) setProjects(projData.projects);
+      const p = profD.user || {};
+      const meUser = meD.user || {};
+      const companyProf: CompanyProfile = {
+        name: meUser.name || "Company Sponsor",
+        email: meUser.email || "",
+        domain: p.domain || meUser.email?.split("@")[1] || "company.com",
+        isVerified: true,
+        bio: p.bio || "",
+        website: p.website || "",
+        industry: p.industry || "",
+        companySize: p.companySize || "",
+        location: p.location || "",
+        phone: p.phone || "",
+        linkedinUrl: p.linkedinUrl || "",
+        foundedYear: p.foundedYear ? String(p.foundedYear) : "",
+        companyDescription: p.companyDescription || "",
+        companyWebsite: p.companyWebsite || "",
+        logoUrl: p.logoUrl || "",
+      };
+      setProfile(companyProf);
 
-      const appRes = await fetch("/api/applications");
-      const appData = await appRes.json();
-      if (appData.applications) setApplications(appData.applications);
+      setPf({
+        name: companyProf.name,
+        bio: companyProf.bio || "",
+        website: companyProf.website || "",
+        industry: companyProf.industry || "",
+        companySize: companyProf.companySize || "",
+        location: companyProf.location || "",
+        phone: companyProf.phone || "",
+        domain: companyProf.domain || "",
+        linkedinUrl: companyProf.linkedinUrl || "",
+        foundedYear: companyProf.foundedYear ? String(companyProf.foundedYear) : "",
+        companyDescription: companyProf.companyDescription || "",
+        companyWebsite: companyProf.companyWebsite || "",
+        logoUrl: companyProf.logoUrl || "",
+      });
 
-      const subRes = await fetch("/api/submissions");
-      const subData = await subRes.json();
-      if (subData.submissions) setSubmissions(subData.submissions);
-
-      const certRes = await fetch("/api/certificates");
-      const certData = await certRes.json();
-      if (certData.certificates) setCertificates(certData.certificates);
-
-    } catch (err) {
-      console.error("Error loading dashboard data:", err);
+      if (projD.projects) setProjects(projD.projects);
+      if (appD.applications) setApplications(appD.applications);
+      if (subD.submissions) setSubmissions(subD.submissions);
+      if (certD.certificates) setCertificates(certD.certificates);
+    } catch (e) {
+      console.error("Company dashboard fetch error:", e);
     } finally {
       setLoading(false);
     }
-  }
+  }, [router]);
 
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  /* ════════════════ Handlers ════════════════ */
   async function handleSignOut() {
     await fetch("/api/auth/logout", { method: "POST" });
-    window.location.href = "/auth/login";
+    window.location.replace("/auth/login");
   }
 
-    // Save company profile edits
-    async function handleSaveProfile(e?: React.FormEvent) {
-      if (e) e.preventDefault();
-      try {
-        const res = await fetch('/api/auth/profile', {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(profileForm),
-        });
-        if (res.ok) {
-          // Refresh local state
-          fetchData();
-          alert('Profile updated');
-          setActiveTab('profile');
-        } else {
-          console.error('Failed to save profile');
-        }
-      } catch (err) {
-        console.error(err);
-      }
-    }
-
-  // FR-C3: Post a Project (Free, Goes Live Immediately)
   async function handleCreateProject(e: React.FormEvent) {
     e.preventDefault();
+    setProjPosting(true);
     try {
       const res = await fetch("/api/projects", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(projectForm),
+        body: JSON.stringify(projForm),
       });
-
       if (res.ok) {
-        setProjectForm({ title: "", description: "", requiredSkills: "", deliverables: "", deadline: "", teamCap: 20 });
-        setShowAdConfirmation(true); // FR-C4: Render ads unit on post-project confirmation
+        setProjSuccess(true);
+        setProjForm({ title: "", description: "", requiredSkills: "", deliverables: "", deadline: "", teamCap: 20 });
+        setTimeout(() => setProjSuccess(false), 3000);
         fetchData();
-        setActiveTab("overview");
+        setActiveTab("projects");
       }
-    } catch (err) {
-      console.error(err);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setProjPosting(false);
     }
   }
 
-  // FR-C6: Manage Project Lifecycle
-  async function handleUpdateProjectStatus(id: string, status: string) {
+  async function handleToggleProjectStatus(projId: string, currentStatus: string) {
+    const nextStatus = currentStatus === "Active" ? "Paused" : "Active";
     try {
-      const res = await fetch(`/api/projects/${id}`, {
+      const res = await fetch(`/api/projects/${projId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: nextStatus }),
+      });
+      if (res.ok) fetchData();
+    } catch (e) { console.error(e); }
+  }
+
+  async function handleUpdateAppStatus(appId: string, status: string) {
+    try {
+      const res = await fetch(`/api/applications/${appId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status }),
       });
       if (res.ok) fetchData();
-    } catch (err) {
-      console.error(err);
-    }
+    } catch (e) { console.error(e); }
   }
 
-  // FR-C6: Extend Deadline
-  async function handleExtendDeadline(id: string, currentDeadline: string) {
-    const newDeadline = prompt("Enter new deadline date (YYYY-MM-DD):", currentDeadline);
-    if (!newDeadline) return;
+  async function handleApproveSubmission(subId: string) {
     try {
-      const res = await fetch(`/api/projects/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ deadline: newDeadline }),
-      });
-      if (res.ok) fetchData();
-    } catch (err) {
-      console.error(err);
-    }
-  }
-
-  // FR-C5: Review Applications (Select/Reject)
-  async function handleApplicationStatus(id: string, status: string) {
-    try {
-      const res = await fetch(`/api/applications/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
-      });
-      if (res.ok) fetchData();
-    } catch (err) {
-      console.error(err);
-    }
-  }
-
-  // FR-C8: Approve Submission (Company confirms deliverable)
-  async function handleApproveSubmission(id: string) {
-    if (!confirm("Are you sure you want to confirm this submission from the company's side? The certificate will be issued after the student also confirms.")) return;
-    try {
-      const res = await fetch(`/api/submissions/${id}`, {
+      const res = await fetch(`/api/submissions/${subId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: "CompanyApproved" }),
       });
       if (res.ok) fetchData();
-    } catch (err) {
-      console.error(err);
-    }
+    } catch (e) { console.error(e); }
   }
 
-  // FR-C8: Reject Submission
   async function handleRejectSubmission(e: React.FormEvent) {
     e.preventDefault();
-    if (!selectedSubmissionId) return;
+    if (!selectedSubId) return;
     try {
-      const res = await fetch(`/api/submissions/${selectedSubmissionId}`, {
+      const res = await fetch(`/api/submissions/${selectedSubId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "Rejected", feedback: feedbackText }),
+        body: JSON.stringify({ status: "Rejected", feedback: feedbackMsg }),
       });
       if (res.ok) {
         setShowRejectModal(false);
-        setFeedbackText("");
+        setFeedbackMsg("");
+        setSelectedSubId(null);
         fetchData();
       }
-    } catch (err) {
-      console.error(err);
-    }
+    } catch (e) { console.error(e); }
   }
 
-  // FR-C9: Revoke/Flag Certificate
-  async function handleUpdateCertificate(id: string, status: string) {
-    if (!confirm(`Are you sure you want to set certificate status to ${status}?`)) return;
+  async function handleSaveProfile(e: React.FormEvent) {
+    e.preventDefault();
+    setPfSaving(true); setPfSaved(false); setPfError("");
     try {
-      const res = await fetch(`/api/certificates/${id}`, {
+      const res = await fetch("/api/auth/profile", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
+        body: JSON.stringify({
+          ...pf,
+          foundedYear: pf.foundedYear ? parseInt(pf.foundedYear) : undefined,
+        }),
       });
-      if (res.ok) fetchData();
-    } catch (err) {
-      console.error(err);
+      if (res.ok) {
+        setPfSaved(true);
+        setTimeout(() => setPfSaved(false), 3000);
+        fetchData();
+      } else {
+        const d = await res.json();
+        setPfError(d.error || "Failed to save profile");
+      }
+    } catch {
+      setPfError("Network error. Failed to save profile.");
+    } finally {
+      setPfSaving(false);
     }
   }
 
+  /* ════════════════ Derived ════════════════ */
+  const pendingSubmissions = submissions.filter(s => s.status === "Submitted");
+  const compName = profile?.name || "Company Sponsor";
+  const compDomain = profile?.domain || "enterprise.com";
+
+  /* ════════════════ Loading ════════════════ */
+  if (loading) return (
+    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--paper)" }}>
+      <div style={{ textAlign: "center" }}>
+        <div style={{ width: 48, height: 48, borderRadius: "50%", border: "4px solid var(--border)", borderTopColor: "var(--navy)", animation: "spin-slow 0.8s linear infinite", margin: "0 auto 16px" }} />
+        <p style={{ color: "var(--ink-muted)", fontWeight: 600 }}>Loading company workspace…</p>
+      </div>
+    </div>
+  );
+
+  /* ════════════════ Styles ════════════════ */
+  const inp = (err?: boolean): React.CSSProperties => ({
+    width: "100%", padding: "10px 14px", border: `1.5px solid ${err ? "#E53E3E" : "var(--border)"}`,
+    borderRadius: 8, fontSize: 14, outline: "none", background: "var(--paper)", color: "var(--ink)",
+    transition: "border-color 0.2s",
+  });
+
   return (
-    <div className="dashboard-root" style={{ minHeight: "100vh", background: "var(--paper)", fontFamily: "Inter, sans-serif" }}>
-      {/* ── Top Navigation Bar ───────────────────────────────── */}
-      <header className="dashboard-topbar" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 28px", borderBottom: "1px solid var(--border)", background: "var(--surface)", position: "sticky", top: 0, zIndex: 10 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <Image src="/app-icon-128.png" alt="CertiTask" width={32} height={32} />
-          <span style={{ fontSize: 20, fontWeight: 700, color: "var(--navy)", letterSpacing: "-0.5px" }}>
-            Certi<span style={{ color: "var(--gold)" }}>Task</span>
-          </span>
-        </div>
+    <div style={{ minHeight: "100vh", background: "var(--paper)", fontFamily: "var(--font-geist-sans)" }}>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-          {/* FR-C1: Verification Status Badge */}
-          {userProfile?.isVerified ? (
-            <span style={{ fontSize: 12, fontWeight: 600, color: "#276749", background: "rgba(56,161,105,0.12)", padding: "4px 10px", borderRadius: 20, display: "inline-flex", alignItems: "center", gap: 4 }}>
-              <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#38A169" }} />
-              Verified Domain ({userProfile.domain})
-            </span>
-          ) : (
-            <span style={{ fontSize: 12, fontWeight: 600, color: "#9B2C2C", background: "rgba(229,62,62,0.12)", padding: "4px 10px", borderRadius: 20 }}>
-              Unverified Domain
-            </span>
-          )}
+      {/* ── TOP HEADER ── */}
+      <header style={{ background: "linear-gradient(135deg, #0A1D33 0%, #0F2A4A 60%, #1a3a5c 100%)", color: "#fff", padding: "0 24px", boxShadow: "0 2px 12px rgba(10,29,51,0.25)" }}>
+        <div style={{ maxWidth: 1280, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-between", height: 64 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <Link href="/" style={{ textDecoration: "none" }}>
+              <span style={{ fontSize: 20, fontWeight: 800, color: "#fff", letterSpacing: -0.5 }}>
+                Certi<span style={{ color: "var(--gold)" }}>Task</span>
+              </span>
+            </Link>
+            <span style={{ width: 1, height: 20, background: "rgba(255,255,255,0.2)" }} />
+            <span style={{ fontSize: 13, color: "rgba(255,255,255,0.55)", fontWeight: 500 }}>Employer Workspace</span>
+          </div>
 
-          <div style={{ width: 1, height: 20, background: "var(--border)" }} />
-
-          <img
-            src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=facearea&facepad=2&w=256&h=256&q=80"
-            alt="Profile Avatar"
-            style={{ width: 32, height: 32, borderRadius: "50%", objectFit: "cover" }}
-          />
-
-          <button onClick={handleSignOut} className="sign-out-btn" style={{ background: "none", border: "none", color: "var(--ink-muted)", display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
-            Sign out
-          </button>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ width: 36, height: 36, borderRadius: 10, background: "var(--gold)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, fontWeight: 800, color: "var(--navy)", flexShrink: 0 }}>
+              {compName.charAt(0).toUpperCase()}
+            </div>
+            <button
+              onClick={() => setActiveTab("post-project")}
+              style={{ marginLeft: 8, padding: "6px 14px", background: "var(--gold)", color: "var(--navy)", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: "pointer" }}
+            >
+              + Post Project
+            </button>
+            <button
+              onClick={() => setActiveTab("profile")}
+              style={{ padding: "6px 14px", background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 8, color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer" }}
+            >
+              Edit Profile
+            </button>
+            <button
+              onClick={handleSignOut}
+              style={{ padding: "6px 14px", background: "transparent", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 8, color: "rgba(255,255,255,0.7)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}
+            >
+              Sign Out
+            </button>
+          </div>
         </div>
       </header>
 
-      {/* ── FR-C4: Top Google Ads / Sponsor Banner ───────────── */}
-      <div style={{ maxWidth: 1200, margin: "16px auto 0", padding: "0 24px" }}>
-        <div style={{ background: "#FFFDF5", border: "1px dashed var(--gold)", borderRadius: "var(--radius-md)", padding: "12px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", boxShadow: "var(--shadow-sm)" }}>
-          <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-            <span style={{ fontSize: 9, fontWeight: 700, color: "var(--gold)", border: "1px solid var(--gold)", padding: "2px 4px", borderRadius: 3, textTransform: "uppercase" }}>Sponsor</span>
-            <p style={{ fontSize: 13, color: "var(--navy)", fontWeight: 500 }}>
-              Need fast cloud servers? Host your next app on <strong>Neon Serverless Postgres</strong>. Fast, autoscaled database.
-            </p>
-          </div>
-          <a href="https://neon.tech" target="_blank" rel="noopener noreferrer" onClick={() => setAdClickCount(c => c + 1)} style={{ fontSize: 12, fontWeight: 700, color: "var(--gold)", textDecoration: "none" }}>
-            Try Neon Free →
-          </a>
-        </div>
-      </div>
+      {/* ── BODY LAYOUT ── */}
+      <div style={{ maxWidth: 1280, margin: "0 auto", padding: "28px 20px", display: "grid", gridTemplateColumns: "230px 1fr", gap: 24 }}>
 
-      {/* ── Main Layout Grid ─────────────────────────────────── */}
-      <main className="dashboard-main" style={{ maxWidth: 1200, margin: "0 auto", padding: "24px", display: "grid", gridTemplateColumns: "240px 1fr", gap: 24 }}>
-        
-        {/* Sidebar Nav */}
-        <aside style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          {[
-            { id: "overview", label: "Dashboard Overview" },
-            { id: "post-project", label: "Post a Project (Free)" },
-            { id: "applications", label: `Applications (${applications.filter(a => a.status === "Pending").length})` },
-            { id: "submissions", label: `Submissions (${submissions.filter(s => s.status === "Submitted").length})` },
-            { id: "certificates", label: "Certificate Oversight" },
-            { id: "billing", label: "Billing & Revenue" },
-            { id: "profile", label: "Public Profile Page" },
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id as any)}
-              style={{
-                width: "100%",
-                textAlign: "left",
-                padding: "10px 14px",
-                borderRadius: 8,
-                border: "none",
-                fontSize: 14,
-                fontWeight: 600,
-                cursor: "pointer",
-                background: activeTab === tab.id ? "var(--navy)" : "transparent",
-                color: activeTab === tab.id ? "#fff" : "var(--ink-muted)",
-                transition: "var(--transition)",
-              }}
-            >
-              {tab.label}
-            </button>
-          ))}
+        {/* ── SIDEBAR ── */}
+        <aside style={{ position: "sticky", top: 24, height: "fit-content" }}>
+          <nav style={{ background: "#fff", border: "1px solid var(--border)", borderRadius: 16, overflow: "hidden", boxShadow: "var(--shadow-sm)" }}>
+            {/* Company mini card */}
+            <div style={{ padding: "20px 16px", borderBottom: "1px solid var(--border)", background: "linear-gradient(135deg, #F8FAFC 0%, #EDF2F7 100%)" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                <div style={{ width: 42, height: 42, borderRadius: 10, background: "var(--navy)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, fontWeight: 800, color: "var(--gold)", flexShrink: 0 }}>
+                  {compName.charAt(0).toUpperCase()}
+                </div>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: "var(--navy)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{compName}</div>
+                  <div style={{ fontSize: 11, color: "var(--ink-subtle)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{compDomain}</div>
+                </div>
+              </div>
+              <div style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "rgba(56,161,105,0.12)", color: "#276749", padding: "3px 8px", borderRadius: 12, fontSize: 11, fontWeight: 700 }}>
+                ✓ Verified Corporate Sponsor
+              </div>
+            </div>
 
-          {/* Ad unit inside sidebar */}
-          <div style={{ marginTop: 24, background: "#EDF2F7", borderRadius: 8, padding: 14, border: "1px solid var(--border)", textAlign: "center" }}>
-            <span style={{ fontSize: 9, color: "var(--ink-subtle)", fontWeight: 700, textTransform: "uppercase" }}>Advertisement</span>
-            <h4 style={{ fontSize: 12, fontWeight: 700, color: "var(--navy)", margin: "4px 0" }}>Host with Vercel</h4>
-            <p style={{ fontSize: 11, color: "var(--ink-muted)", lineHeight: 1.4, marginBottom: 8 }}>Deploy your Next.js apps instantly with Vercel.</p>
-            <a href="https://vercel.com" target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, fontWeight: 700, color: "var(--navy)", textDecoration: "none" }}>Learn More</a>
+            {/* Nav items */}
+            <div style={{ padding: "8px 0" }}>
+              {TABS.map(tab => {
+                const isActive = activeTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    style={{
+                      width: "100%", display: "flex", alignItems: "center", gap: 10,
+                      padding: "10px 16px", border: "none", borderRadius: 0,
+                      background: isActive ? "rgba(15,42,74,0.06)" : "transparent",
+                      color: isActive ? "var(--navy)" : "var(--ink-muted)",
+                      fontSize: 13, fontWeight: isActive ? 700 : 500, cursor: "pointer",
+                      transition: "all 0.15s",
+                      borderLeft: isActive ? "3px solid var(--navy)" : "3px solid transparent",
+                    }}
+                  >
+                    <span style={{ fontSize: 16 }}>{tab.icon}</span>
+                    {tab.label}
+                    {tab.id === "submissions" && pendingSubmissions.length > 0 && (
+                      <span style={{ marginLeft: "auto", fontSize: 10, fontWeight: 700, background: "#E53E3E", color: "#fff", borderRadius: 10, padding: "1px 6px" }}>{pendingSubmissions.length}</span>
+                    )}
+                    {tab.id === "applications" && applications.length > 0 && (
+                      <span style={{ marginLeft: "auto", fontSize: 10, fontWeight: 700, background: "var(--navy)", color: "#fff", borderRadius: 10, padding: "1px 6px" }}>{applications.length}</span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </nav>
+
+          {/* Activity summary sidebar card */}
+          <div style={{ marginTop: 16, background: "#fff", border: "1px solid var(--border)", borderRadius: 12, padding: 16, boxShadow: "var(--shadow-sm)" }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "var(--ink-subtle)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 12 }}>Corporate Summary</div>
+            {[
+              { label: "Active Projects", value: projects.filter(p => p.status === "Active").length, color: "var(--navy)" },
+              { label: "Applications",   value: applications.length,                                color: "#3182CE" },
+              { label: "Review Queue",   value: pendingSubmissions.length,                          color: pendingSubmissions.length > 0 ? "#E53E3E" : "var(--ink-subtle)" },
+              { label: "Certificates",   value: certificates.length,                                color: "var(--success)" },
+            ].map(s => (
+              <div key={s.label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 0", borderBottom: "1px solid var(--border)" }}>
+                <span style={{ fontSize: 12, color: "var(--ink-muted)" }}>{s.label}</span>
+                <span style={{ fontSize: 16, fontWeight: 800, color: s.color }}>{s.value}</span>
+              </div>
+            ))}
           </div>
         </aside>
 
-        {/* Dynamic Tab Panel */}
-        <section style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", padding: "28px", boxShadow: "var(--shadow-sm)" }}>
-          
-          {/* ── TAB 1: OVERVIEW ──────────────────────────────── */}
-          {activeTab === "overview" && (
-            <div>
-              <h2 style={{ fontSize: 22, fontWeight: 800, color: "var(--navy)", marginBottom: 6 }}>Overview</h2>
-              <p style={{ fontSize: 14, color: "var(--ink-muted)", marginBottom: 24 }}>Manage your active project listings and student engagements.</p>
+        {/* ── MAIN PANEL ── */}
+        <main style={{ minWidth: 0 }}>
+          <div style={{ background: "#fff", border: "1px solid var(--border)", borderRadius: 16, padding: 28, boxShadow: "var(--shadow-sm)", minHeight: 450 }}>
 
-              {/* Stats row */}
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginBottom: 32 }}>
-                <div style={{ border: "1px solid var(--border)", borderRadius: 12, padding: 18, background: "#F8FAFC" }}>
-                  <span style={{ fontSize: 12, color: "var(--ink-subtle)", fontWeight: 600 }}>Active Projects</span>
-                  <div style={{ fontSize: 28, fontWeight: 800, color: "var(--navy)", marginTop: 4 }}>{projects.filter(p => p.status === "Active").length}</div>
-                </div>
-                <div style={{ border: "1px solid var(--border)", borderRadius: 12, padding: 18, background: "#F8FAFC" }}>
-                  <span style={{ fontSize: 12, color: "var(--ink-subtle)", fontWeight: 600 }}>Pending Applications</span>
-                  <div style={{ fontSize: 28, fontWeight: 800, color: "var(--navy)", marginTop: 4 }}>{applications.filter(a => a.status === "Pending").length}</div>
-                </div>
-                <div style={{ border: "1px solid var(--border)", borderRadius: 12, padding: 18, background: "#F8FAFC" }}>
-                  <span style={{ fontSize: 12, color: "var(--ink-subtle)", fontWeight: 600 }}>Issued Certificates</span>
-                  <div style={{ fontSize: 28, fontWeight: 800, color: "var(--navy)", marginTop: 4 }}>{certificates.filter(c => c.status === "Verified").length}</div>
-                </div>
-              </div>
-
-              {/* Projects List */}
-              <h3 style={{ fontSize: 16, fontWeight: 700, color: "var(--navy)", marginBottom: 16 }}>Your Posted Projects</h3>
-              {projects.length === 0 ? (
-                <div style={{ border: "2px dashed var(--border)", borderRadius: 12, padding: 40, textAlign: "center" }}>
-                  <p style={{ color: "var(--ink-muted)", marginBottom: 16 }}>No projects posted yet.</p>
-                  <button onClick={() => setActiveTab("post-project")} className="btn-primary" style={{ width: "auto", display: "inline-flex", padding: "10px 20px" }}>Post Your First Project</button>
-                </div>
-              ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                  {projects.map((proj) => (
-                    <div key={proj.id} style={{ border: "1px solid var(--border)", borderRadius: 12, padding: 20 }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
-                        <div>
-                          <h4 style={{ fontSize: 16, fontWeight: 700, color: "var(--navy)" }}>{proj.title}</h4>
-                          <span style={{ fontSize: 12, color: "var(--ink-subtle)" }}>Deadline: {proj.deadline} | Team Cap: {proj.teamCap} students</span>
-                        </div>
-                        <span style={{
-                          padding: "4px 10px",
-                          borderRadius: 20,
-                          fontSize: 11,
-                          fontWeight: 700,
-                          background: proj.status === "Active" ? "rgba(56,161,105,0.12)" : proj.status === "Paused" ? "rgba(214,158,46,0.12)" : "rgba(229,62,62,0.12)",
-                          color: proj.status === "Active" ? "#276749" : proj.status === "Paused" ? "#975A16" : "#9B2C2C",
-                        }}>
-                          {proj.status}
-                        </span>
-                      </div>
-                      <p style={{ fontSize: 14, color: "var(--ink-muted)", marginBottom: 16 }}>{proj.description}</p>
-
-                      {/* Lifecycle Controls */}
-                      <div style={{ display: "flex", gap: 8 }}>
-                        {proj.status === "Active" ? (
-                          <button onClick={() => handleUpdateProjectStatus(proj.id, "Paused")} style={{ padding: "6px 12px", border: "1px solid var(--border)", background: "#fff", borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: "pointer", color: "var(--ink-muted)" }}>Pause Listing</button>
-                        ) : (
-                          <button onClick={() => handleUpdateProjectStatus(proj.id, "Active")} style={{ padding: "6px 12px", border: "1px solid var(--border)", background: "#fff", borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: "pointer", color: "var(--navy)" }}>Go Live</button>
-                        )}
-                        <button onClick={() => handleExtendDeadline(proj.id, proj.deadline)} style={{ padding: "6px 12px", border: "1px solid var(--border)", background: "#fff", borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: "pointer", color: "var(--ink-muted)" }}>Extend Deadline</button>
-                        <button onClick={() => handleUpdateProjectStatus(proj.id, "Closed")} style={{ padding: "6px 12px", border: "1px solid #FC8181", background: "#FFF5F5", borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: "pointer", color: "#C53030" }}>Close Project</button>
-                      </div>
+            {/* ══════════ TAB 1: OVERVIEW ══════════ */}
+            {activeTab === "overview" && (
+              <div>
+                {/* Banner */}
+                <div style={{ background: "linear-gradient(135deg, #0A1D33 0%, #0F2A4A 100%)", borderRadius: 14, padding: "28px 32px", marginBottom: 24, position: "relative", overflow: "hidden" }}>
+                  <div style={{ position: "absolute", top: -30, right: -30, width: 160, height: 160, borderRadius: "50%", background: "rgba(201,162,39,0.08)" }} />
+                  <div style={{ position: "relative", zIndex: 1 }}>
+                    <div style={{ fontSize: 13, color: "rgba(255,255,255,0.5)", marginBottom: 4 }}>Corporate Portal 👋</div>
+                    <h1 style={{ fontSize: 26, fontWeight: 800, color: "#fff", margin: 0, letterSpacing: -0.5 }}>{compName}</h1>
+                    <p style={{ color: "rgba(255,255,255,0.6)", fontSize: 14, marginTop: 6, marginBottom: 0 }}>Manage real-world project tasks, review student work, and issue verified certificates.</p>
+                    <div style={{ marginTop: 16, display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      <button onClick={() => setActiveTab("post-project")} style={{ padding: "8px 18px", background: "var(--gold)", color: "var(--navy)", border: "none", borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
+                        + Post New Project
+                      </button>
+                      <button onClick={() => setActiveTab("submissions")} style={{ padding: "8px 18px", background: "rgba(255,255,255,0.1)", color: "#fff", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 8, fontWeight: 600, fontSize: 13, cursor: "pointer" }}>
+                        📥 Review Submissions ({pendingSubmissions.length})
+                      </button>
                     </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* ── TAB 2: POST A PROJECT (FREE & LIVE IMMEDIATELY) ──── */}
-          {activeTab === "post-project" && (
-            <div>
-              <h2 style={{ fontSize: 22, fontWeight: 800, color: "var(--navy)", marginBottom: 6 }}>Post a Project</h2>
-              <p style={{ fontSize: 14, color: "var(--ink-muted)", marginBottom: 24 }}>Form to create a project listing. Goes live immediately on submission for free.</p>
-
-              <form onSubmit={handleCreateProject}>
-                <div className="form-group">
-                  <label className="form-label">Project Title</label>
-                  <input
-                    type="text"
-                    className="form-input"
-                    placeholder="e.g. ISO 27001 Compliance Audit Helper"
-                    value={projectForm.title}
-                    onChange={(e) => setProjectForm({ ...projectForm, title: e.target.value })}
-                    required
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">Project Description</label>
-                  <textarea
-                    className="form-input"
-                    rows={4}
-                    style={{ height: "auto", padding: "10px 14px" }}
-                    placeholder="Provide details about the project goals, scope, and expectations..."
-                    value={projectForm.description}
-                    onChange={(e) => setProjectForm({ ...projectForm, description: e.target.value })}
-                    required
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">Required Skills (Comma separated)</label>
-                  <input
-                    type="text"
-                    className="form-input"
-                    placeholder="e.g. React, Cybersecurity, Excel"
-                    value={projectForm.requiredSkills}
-                    onChange={(e) => setProjectForm({ ...projectForm, requiredSkills: e.target.value })}
-                    required
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">Deliverables Required</label>
-                  <input
-                    type="text"
-                    className="form-input"
-                    placeholder="e.g. GitHub Repository, PDF Security Audit Report"
-                    value={projectForm.deliverables}
-                    onChange={(e) => setProjectForm({ ...projectForm, deliverables: e.target.value })}
-                    required
-                  />
-                </div>
-
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-                  <div className="form-group">
-                    <label className="form-label">Submission Deadline</label>
-                    <input
-                      type="date"
-                      className="form-input"
-                      value={projectForm.deadline}
-                      onChange={(e) => setProjectForm({ ...projectForm, deadline: e.target.value })}
-                      required
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Team Size Cap (Students)</label>
-                    <input
-                      type="number"
-                      className="form-input"
-                      value={projectForm.teamCap}
-                      onChange={(e) => setProjectForm({ ...projectForm, teamCap: parseInt(e.target.value) || 20 })}
-                      required
-                    />
                   </div>
                 </div>
 
-                <button type="submit" className="btn-primary btn-gold" style={{ marginTop: 12 }}>
-                  Submit & Post Live Immediately (No Fee)
-                </button>
-              </form>
-            </div>
-          )}
-
-          {/* ── TAB 3: REVIEW APPLICATIONS ───────────────────── */}
-          {activeTab === "applications" && (
-            <div>
-              <h2 style={{ fontSize: 22, fontWeight: 800, color: "var(--navy)", marginBottom: 6 }}>Applications</h2>
-              <p style={{ fontSize: 14, color: "var(--ink-muted)", marginBottom: 24 }}>Review applying student teams and select sub-teams for your listings.</p>
-
-              {applications.length === 0 ? (
-                <p style={{ color: "var(--ink-subtle)", textAlign: "center", padding: "40px 0" }}>No applications received yet.</p>
-              ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                  {applications.map((app) => (
-                    <div key={app.id} style={{ border: "1px solid var(--border)", borderRadius: 12, padding: 20 }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
-                        <div>
-                          <h4 style={{ fontSize: 16, fontWeight: 700, color: "var(--navy)" }}>{app.teamName}</h4>
-                          <span style={{ fontSize: 12, color: "var(--ink-subtle)" }}>Applying for: <strong>{app.project.title}</strong></span>
-                        </div>
-                        <span style={{
-                          padding: "4px 10px",
-                          borderRadius: 20,
-                          fontSize: 11,
-                          fontWeight: 700,
-                          background: app.status === "Pending" ? "#EDF2F7" : app.status === "Selected" ? "rgba(56,161,105,0.12)" : "rgba(229,62,62,0.12)",
-                          color: app.status === "Pending" ? "var(--ink-muted)" : app.status === "Selected" ? "#276749" : "#9B2C2C",
-                        }}>
-                          {app.status}
-                        </span>
-                      </div>
-                      <p style={{ fontSize: 13, color: "var(--ink-muted)", marginBottom: 8 }}><strong>Team Members:</strong> {app.members}</p>
-                      <p style={{ fontSize: 14, color: "var(--ink-muted)", marginBottom: 16 }}><strong>Pitch:</strong> {app.pitch}</p>
-
-                      {app.status === "Pending" && (
-                        <div style={{ display: "flex", gap: 8 }}>
-                          <button onClick={() => handleApplicationStatus(app.id, "Selected")} style={{ padding: "6px 14px", background: "var(--navy)", color: "#fff", border: "none", borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Accept Team</button>
-                          <button onClick={() => handleApplicationStatus(app.id, "Rejected")} style={{ padding: "6px 14px", border: "1px solid var(--border)", background: "#fff", borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: "pointer", color: "#C53030" }}>Decline</button>
-                        </div>
-                      )}
+                {/* Stats Grid */}
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 28 }}>
+                  {[
+                    { label: "Active Projects",      value: projects.length,            icon: "🚀", color: "var(--navy)",    bg: "rgba(15,42,74,0.06)" },
+                    { label: "Student Applications", value: applications.length,        icon: "📋", color: "#3182CE",         bg: "rgba(49,130,206,0.08)" },
+                    { label: "Submissions Queue",    value: pendingSubmissions.length,  icon: "📤", color: "#E53E3E",         bg: "rgba(229,62,62,0.08)" },
+                    { label: "Issued Credentials",   value: certificates.length,        icon: "🏅", color: "var(--success)", bg: "rgba(56,161,105,0.08)" },
+                  ].map(s => (
+                    <div key={s.label} style={{ background: s.bg, border: "1px solid var(--border)", borderRadius: 12, padding: "18px 16px", textAlign: "center" }}>
+                      <div style={{ fontSize: 24, marginBottom: 6 }}>{s.icon}</div>
+                      <div style={{ fontSize: 28, fontWeight: 800, color: s.color }}>{s.value}</div>
+                      <div style={{ fontSize: 12, color: "var(--ink-muted)", marginTop: 2 }}>{s.label}</div>
                     </div>
                   ))}
                 </div>
-              )}
-            </div>
-          )}
 
-          {/* ── TAB 4: REVIEW SUBMISSIONS ────────────────────── */}
-          {activeTab === "submissions" && (
-            <div>
-              <h2 style={{ fontSize: 22, fontWeight: 800, color: "var(--navy)", marginBottom: 6 }}>Submissions</h2>
-              <p style={{ fontSize: 14, color: "var(--ink-muted)", marginBottom: 24 }}>Review deliverables, write feedback, and trigger certificate issuance upon approval.</p>
-
-              {submissions.length === 0 ? (
-                <p style={{ color: "var(--ink-subtle)", textAlign: "center", padding: "40px 0" }}>No submissions received yet.</p>
-              ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                  {submissions.map((sub) => (
-                    <div key={sub.id} style={{ border: "1px solid var(--border)", borderRadius: 12, padding: 20 }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
-                        <div>
-                          <h4 style={{ fontSize: 16, fontWeight: 700, color: "var(--navy)" }}>{sub.teamName}</h4>
-                          <span style={{ fontSize: 12, color: "var(--ink-subtle)" }}>Project: <strong>{sub.project.title}</strong></span>
-                        </div>
-                        <span style={{
-                          padding: "4px 10px",
-                          borderRadius: 20,
-                          fontSize: 11,
-                          fontWeight: 700,
-                          background: sub.status === "Submitted" ? "rgba(49,130,206,0.12)" : sub.status === "Approved" ? "rgba(56,161,105,0.12)" : "rgba(229,62,62,0.12)",
-                          color: sub.status === "Submitted" ? "#2B6CB0" : sub.status === "Approved" ? "#276749" : "#9B2C2C",
-                        }}>
-                          {sub.status}
-                        </span>
+                {/* Submissions Queue Alert */}
+                {pendingSubmissions.length > 0 && (
+                  <div style={{ background: "rgba(229,62,62,0.06)", border: "1px solid rgba(229,62,62,0.25)", borderRadius: 12, padding: 20, marginBottom: 24 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <div>
+                        <h4 style={{ fontSize: 15, fontWeight: 700, color: "#9B2C2C", margin: "0 0 4px" }}>⚠️ Action Required ({pendingSubmissions.length} Submissions)</h4>
+                        <p style={{ fontSize: 13, color: "#9B2C2C", margin: 0 }}>Student teams have submitted completed deliverables for your review.</p>
                       </div>
-                      <p style={{ fontSize: 13, color: "var(--ink-muted)", marginBottom: 8 }}>
-                        <strong>Submission Link/Repo:</strong>{" "}
-                        <a href={sub.submissionUrl} target="_blank" rel="noopener noreferrer" style={{ color: "var(--gold)", fontWeight: 600 }}>{sub.submissionUrl}</a>
-                      </p>
-                      {sub.notes && <p style={{ fontSize: 14, color: "var(--ink-muted)", marginBottom: 16 }}><strong>Notes:</strong> {sub.notes}</p>}
-                      {sub.feedback && <p style={{ fontSize: 13, background: "#F7FAFC", padding: "10px 14px", borderRadius: 8, borderLeft: "3px solid var(--gold)", color: "var(--ink-muted)", marginBottom: 16 }}><strong>Feedback given:</strong> {sub.feedback}</p>}
-
-                      {sub.status === "Submitted" && (
-                        <div style={{ display: "flex", gap: 8 }}>
-                          <button onClick={() => handleApproveSubmission(sub.id)} style={{ padding: "6px 14px", background: "#38A169", color: "#fff", border: "none", borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Approve & Issue Certificate</button>
-                          <button onClick={() => { setSelectedSubmissionId(sub.id); setShowRejectModal(true); }} style={{ padding: "6px 14px", border: "1px solid var(--border)", background: "#fff", borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: "pointer", color: "#C53030" }}>Return Feedback / Decline</button>
-                        </div>
-                      )}
+                      <button onClick={() => setActiveTab("submissions")} style={{ padding: "8px 16px", background: "#9B2C2C", color: "#fff", border: "none", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+                        Review Queue →
+                      </button>
                     </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
+                  </div>
+                )}
 
-          {/* ── TAB 5: CERTIFICATE OVERSIGHT ─────────────────── */}
-          {activeTab === "certificates" && (
-            <div>
-              <h2 style={{ fontSize: 22, fontWeight: 800, color: "var(--navy)", marginBottom: 6 }}>Certificate Oversight</h2>
-              <p style={{ fontSize: 14, color: "var(--ink-muted)", marginBottom: 24 }}>Overview of issued credentials under your brand name, with the ability to flag or revoke.</p>
-
-              {certificates.length === 0 ? (
-                <p style={{ color: "var(--ink-subtle)", textAlign: "center", padding: "40px 0" }}>No certificates issued yet.</p>
-              ) : (
-                <div style={{ overflowX: "auto" }}>
-                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
-                    <thead>
-                      <tr style={{ background: "#F8FAFC", borderBottom: "1px solid var(--border)", color: "var(--ink-muted)", fontSize: 12, textTransform: "uppercase", textAlign: "left" }}>
-                        <th style={{ padding: "12px" }}>Credential ID</th>
-                        <th style={{ padding: "12px" }}>Student</th>
-                        <th style={{ padding: "12px" }}>Certificate Title</th>
-                        <th style={{ padding: "12px" }}>Issue Date</th>
-                        <th style={{ padding: "12px" }}>Status</th>
-                        <th style={{ padding: "12px", textAlign: "right" }}>Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {certificates.map((cert) => (
-                        <tr key={cert.id} style={{ borderBottom: "1px solid var(--border)" }}>
-                          <td style={{ padding: "12px", fontFamily: "monospace", fontWeight: 600 }}>{cert.certId}</td>
-                          <td style={{ padding: "12px" }}>
-                            <div style={{ fontWeight: 600 }}>{cert.studentName}</div>
-                            <div style={{ fontSize: 12, color: "var(--ink-subtle)" }}>{cert.studentEmail}</div>
-                          </td>
-                          <td style={{ padding: "12px" }}>{cert.title}</td>
-                          <td style={{ padding: "12px", color: "var(--ink-muted)" }}>{cert.issueDate}</td>
-                          <td style={{ padding: "12px" }}>
-                            <span style={{
-                              padding: "2px 8px",
-                              borderRadius: 10,
-                              fontSize: 11,
-                              fontWeight: 700,
-                              background: cert.status === "Verified" ? "rgba(56,161,105,0.12)" : "rgba(229,62,62,0.12)",
-                              color: cert.status === "Verified" ? "#276749" : "#9B2C2C",
-                            }}>
-                              {cert.status}
-                            </span>
-                          </td>
-                          <td style={{ padding: "12px", textAlign: "right" }}>
-                            {cert.status === "Verified" ? (
-                              <button onClick={() => handleUpdateCertificate(cert.id, "Revoked")} style={{ padding: "4px 8px", background: "none", border: "1px solid #FC8181", color: "#C53030", borderRadius: 4, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Revoke</button>
-                            ) : (
-                              <button onClick={() => handleUpdateCertificate(cert.id, "Verified")} style={{ padding: "4px 8px", background: "none", border: "1px solid var(--border)", color: "var(--navy)", borderRadius: 4, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Verify</button>
-                            )}
-                          </td>
-                        </tr>
+                {/* Projects overview */}
+                <div>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+                    <h3 style={{ fontSize: 16, fontWeight: 700, color: "var(--navy)", margin: 0 }}>Recent Project Listings</h3>
+                    <button onClick={() => setActiveTab("projects")} style={{ background: "none", border: "none", color: "var(--gold)", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>View All →</button>
+                  </div>
+                  {projects.length === 0 ? (
+                    <div style={{ textAlign: "center", padding: "40px 0", border: "1px dashed var(--border)", borderRadius: 12, color: "var(--ink-subtle)" }}>
+                      <p style={{ margin: "0 0 10px", fontWeight: 600 }}>No projects posted yet.</p>
+                      <button onClick={() => setActiveTab("post-project")} style={{ padding: "8px 18px", background: "var(--navy)", color: "#fff", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+                        + Post Your First Project
+                      </button>
+                    </div>
+                  ) : (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                      {projects.slice(0, 3).map(proj => (
+                        <div key={proj.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 18px", border: "1px solid var(--border)", borderRadius: 10, background: "#FAFAFA" }}>
+                          <div>
+                            <div style={{ fontSize: 15, fontWeight: 700, color: "var(--navy)" }}>{proj.title}</div>
+                            <div style={{ fontSize: 12, color: "var(--ink-muted)", marginTop: 2 }}>Deadline: {proj.deadline} · Skills: {proj.requiredSkills}</div>
+                          </div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                            <StatusBadge status={proj.status} />
+                            <button onClick={() => handleToggleProjectStatus(proj.id, proj.status)} style={{ padding: "4px 10px", background: "transparent", border: "1px solid var(--border)", borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
+                              {proj.status === "Active" ? "Pause" : "Activate"}
+                            </button>
+                          </div>
+                        </div>
                       ))}
-                    </tbody>
-                  </table>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-          )}
+              </div>
+            )}
 
-          {/* ── TAB 6: BILLING & AD REVENUE NOTE ──────────────── */}
-          {activeTab === "billing" && (
-            <div>
-              <h2 style={{ fontSize: 22, fontWeight: 800, color: "var(--navy)", marginBottom: 6 }}>Billing & Ad Revenue</h2>
-              <p style={{ fontSize: 14, color: "var(--ink-muted)", marginBottom: 24 }}>Billing history and platform advertisement metrics.</p>
+            {/* ══════════ TAB 2: POST PROJECT ══════════ */}
+            {activeTab === "post-project" && (
+              <div>
+                <div style={{ marginBottom: 24 }}>
+                  <h2 style={{ fontSize: 22, fontWeight: 800, color: "var(--navy)", margin: "0 0 4px" }}>➕ Post New Real-World Project</h2>
+                  <p style={{ color: "var(--ink-muted)", fontSize: 14, margin: 0 }}>Outline the project scope, required skills, and deliverables for student applicants.</p>
+                </div>
 
-              <div style={{ border: "1px solid var(--border)", borderRadius: 12, padding: 24, background: "#FFFDF5", marginBottom: 24 }}>
-                <h4 style={{ fontSize: 16, fontWeight: 700, color: "var(--navy)", marginBottom: 8 }}>Free Tier (Ad-Supported)</h4>
-                <p style={{ fontSize: 14, color: "var(--ink-muted)", lineHeight: 1.6 }}>
-                  CertiTask is free for all companies and students. Instead of paying listing fees, the platform is sustained through non-intrusive developer sponsorships and ads.
-                </p>
-                <div style={{ display: "flex", gap: 24, marginTop: 18 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: 24 }}>
+                  <form onSubmit={handleCreateProject}>
+                    <div style={{ border: "1px solid var(--border)", borderRadius: 12, padding: 24, marginBottom: 20 }}>
+                      <div style={{ marginBottom: 16 }}>
+                        <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "var(--navy)", marginBottom: 5 }}>Project Title *</label>
+                        <input value={projForm.title} onChange={e => setProjForm({ ...projForm, title: e.target.value })} style={inp()} placeholder="e.g. Next.js E-Commerce Checkout Component" required />
+                      </div>
+
+                      <div style={{ marginBottom: 16 }}>
+                        <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "var(--navy)", marginBottom: 5 }}>Project Description *</label>
+                        <textarea value={projForm.description} onChange={e => setProjForm({ ...projForm, description: e.target.value })} rows={4} style={{ ...inp(), resize: "vertical" as const, height: "auto" }} placeholder="Describe the feature scope, architectural requirements, and business context..." required />
+                      </div>
+
+                      <div style={{ marginBottom: 16 }}>
+                        <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "var(--navy)", marginBottom: 5 }}>Required Skills (comma separated) *</label>
+                        <input value={projForm.requiredSkills} onChange={e => setProjForm({ ...projForm, requiredSkills: e.target.value })} style={inp()} placeholder="e.g. React, Next.js, Node.js, TypeScript" required />
+                      </div>
+
+                      <div style={{ marginBottom: 16 }}>
+                        <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "var(--navy)", marginBottom: 5 }}>Deliverables Specification *</label>
+                        <textarea value={projForm.deliverables} onChange={e => setProjForm({ ...projForm, deliverables: e.target.value })} rows={3} style={{ ...inp(), resize: "vertical" as const, height: "auto" }} placeholder="e.g. GitHub Pull Request with 90% test coverage and live Vercel demo link..." required />
+                      </div>
+
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                        <div>
+                          <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "var(--navy)", marginBottom: 5 }}>Deadline Date *</label>
+                          <input type="date" value={projForm.deadline} onChange={e => setProjForm({ ...projForm, deadline: e.target.value })} style={inp()} required />
+                        </div>
+                        <div>
+                          <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "var(--navy)", marginBottom: 5 }}>Team Capacity (Max Students)</label>
+                          <input type="number" min="1" max="50" value={projForm.teamCap} onChange={e => setProjForm({ ...projForm, teamCap: parseInt(e.target.value) || 20 })} style={inp()} />
+                        </div>
+                      </div>
+                    </div>
+
+                    <button type="submit" disabled={projPosting} style={{ width: "100%", padding: "14px 0", background: projPosting ? "#A0AEC0" : "var(--navy)", color: "#fff", border: "none", borderRadius: 10, fontWeight: 800, fontSize: 15, cursor: projPosting ? "not-allowed" : "pointer" }}>
+                      {projPosting ? "Posting Project..." : "🚀 Publish Project Listing"}
+                    </button>
+
+                    {projSuccess && (
+                      <div style={{ marginTop: 14, padding: "12px 16px", background: "rgba(56,161,105,0.1)", border: "1px solid rgba(56,161,105,0.3)", borderRadius: 10, color: "#276749", fontWeight: 600, textAlign: "center" }}>
+                        ✓ Project created and published successfully!
+                      </div>
+                    )}
+                  </form>
+
+                  {/* Student View Live Preview */}
                   <div>
-                    <span style={{ fontSize: 12, color: "var(--ink-subtle)" }}>Sponsor Clicks Generated</span>
-                    <div style={{ fontSize: 24, fontWeight: 800, color: "var(--navy)", marginTop: 2 }}>{adClickCount}</div>
-                  </div>
-                  <div>
-                    <span style={{ fontSize: 12, color: "var(--ink-subtle)" }}>Current Billing Invoices</span>
-                    <div style={{ fontSize: 24, fontWeight: 800, color: "var(--success)", marginTop: 2 }}>$0.00 (Free)</div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: "var(--ink-subtle)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>Student Card Preview</div>
+                    <div style={{ border: "1px solid var(--gold)", borderRadius: 14, padding: 20, background: "#FFFDF5", boxShadow: "var(--shadow-md)" }}>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: "var(--gold)", background: "rgba(201,162,39,0.15)", padding: "2px 6px", borderRadius: 4, textTransform: "uppercase" }}>Corporate Project</span>
+                      <h4 style={{ fontSize: 16, fontWeight: 800, color: "var(--navy)", margin: "8px 0 4px" }}>{projForm.title || "Project Title Placeholder"}</h4>
+                      <div style={{ fontSize: 12, color: "var(--gold)", fontWeight: 600, marginBottom: 10 }}>{compName}</div>
+                      <p style={{ fontSize: 13, color: "var(--ink-muted)", margin: "0 0 12px", lineHeight: 1.5 }}>{projForm.description || "Project description preview will appear here as you type..."}</p>
+                      <div style={{ fontSize: 11, color: "var(--navy)", fontWeight: 600, marginBottom: 12 }}>Skills: {projForm.requiredSkills || "React, TypeScript..."}</div>
+                      <div style={{ fontSize: 11, color: "var(--ink-subtle)" }}>Deadline: {projForm.deadline || "YYYY-MM-DD"}</div>
+                    </div>
                   </div>
                 </div>
               </div>
+            )}
 
-              <div style={{ border: "1px solid var(--border)", borderRadius: 12, padding: 20, background: "#EDF2F7" }}>
-                <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", color: "var(--ink-subtle)" }}>Phase 2 Featured Listing</span>
-                <p style={{ fontSize: 13, color: "var(--ink-muted)", marginTop: 6 }}>
-                  Featured listing purchase history and invoice exports will appear here in Phase 2.
-                </p>
-              </div>
-            </div>
-          )}
-
-          {/* ── TAB 7: COMPANY PROFILE PAGE ──────────────────── */}
-          {activeTab === "profile" && userProfile && (
-            <div>
-              <h2 style={{ fontSize: 22, fontWeight: 800, color: "var(--navy)", marginBottom: 6 }}>Company Profile Page</h2>
-              <p style={{ fontSize: 14, color: "var(--ink-muted)", marginBottom: 24 }}>Public facing organizational branding.</p>
-
-              <div style={{ border: "1px solid var(--border)", borderRadius: 12, padding: 24, background: "#F8FAFC", marginBottom: 24 }}>
-                <div style={{ display: "flex", gap: 16, alignItems: "center", marginBottom: 16 }}>
-                  <img
-                    src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=facearea&facepad=2&w=256&h=256&q=80"
-                    alt={userProfile.name}
-                    style={{ width: 64, height: 64, borderRadius: "50%", objectFit: "cover" }}
-                  />
+            {/* ══════════ TAB 3: MY PROJECTS ══════════ */}
+            {activeTab === "projects" && (
+              <div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
                   <div>
-                    <h3 style={{ fontSize: 18, fontWeight: 800, color: "var(--navy)" }}>{userProfile.name}</h3>
-                    <p style={{ fontSize: 13, color: "var(--gold)", fontWeight: 600 }}>{userProfile.website}</p>
+                    <h2 style={{ fontSize: 22, fontWeight: 800, color: "var(--navy)", margin: "0 0 4px" }}>🚀 My Corporate Projects</h2>
+                    <p style={{ color: "var(--ink-muted)", fontSize: 14, margin: 0 }}>Manage status, edit specifications, and track student enrollment.</p>
+                  </div>
+                  <button onClick={() => setActiveTab("post-project")} style={{ padding: "9px 18px", background: "var(--navy)", color: "#fff", border: "none", borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
+                    + Post New Project
+                  </button>
+                </div>
+
+                {projects.length === 0 ? (
+                  <div style={{ textAlign: "center", padding: "60px 0", color: "var(--ink-subtle)" }}>
+                    <div style={{ fontSize: 48, marginBottom: 12 }}>📭</div>
+                    <div style={{ fontWeight: 600, marginBottom: 6 }}>No active project listings</div>
+                    <button onClick={() => setActiveTab("post-project")} style={{ marginTop: 12, padding: "9px 20px", background: "var(--gold)", color: "var(--navy)", border: "none", borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
+                      + Create First Project
+                    </button>
+                  </div>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                    {projects.map(proj => {
+                      const projApps = applications.filter(a => a.projectId === proj.id);
+                      return (
+                        <div key={proj.id} style={{ border: "1px solid var(--border)", borderRadius: 14, padding: 22, background: "#FAFAFA" }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
+                            <div>
+                              <h4 style={{ fontSize: 17, fontWeight: 700, color: "var(--navy)", margin: "0 0 4px" }}>{proj.title}</h4>
+                              <div style={{ fontSize: 13, color: "var(--ink-muted)" }}>Required Skills: <strong>{proj.requiredSkills}</strong></div>
+                            </div>
+                            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                              <StatusBadge status={proj.status} />
+                              <button onClick={() => handleToggleProjectStatus(proj.id, proj.status)} style={{ padding: "5px 12px", background: "#fff", border: "1px solid var(--border)", borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+                                {proj.status === "Active" ? "Pause Listing" : "Reactivate"}
+                              </button>
+                            </div>
+                          </div>
+                          <p style={{ fontSize: 14, color: "var(--ink-muted)", margin: "0 0 14px", lineHeight: 1.6 }}>{proj.description}</p>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid var(--border)", paddingTop: 12, fontSize: 12, color: "var(--ink-subtle)" }}>
+                            <span>📅 Deadline: <strong>{proj.deadline}</strong> · Team Cap: <strong>{proj.teamCap}</strong></span>
+                            <button onClick={() => setActiveTab("applications")} style={{ background: "none", border: "none", color: "var(--navy)", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
+                              View Applications ({projApps.length}) →
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ══════════ TAB 4: STUDENT APPLICATIONS ══════════ */}
+            {activeTab === "applications" && (
+              <div>
+                <div style={{ marginBottom: 24 }}>
+                  <h2 style={{ fontSize: 22, fontWeight: 800, color: "var(--navy)", margin: "0 0 4px" }}>📋 Student Team Applications</h2>
+                  <p style={{ color: "var(--ink-muted)", fontSize: 14, margin: 0 }}>Review team pitches and select qualified student groups for your projects.</p>
+                </div>
+
+                {applications.length === 0 ? (
+                  <div style={{ textAlign: "center", padding: "60px 0", color: "var(--ink-subtle)" }}>
+                    <div style={{ fontSize: 48, marginBottom: 12 }}>📬</div>
+                    <div style={{ fontWeight: 600 }}>No student applications received yet.</div>
+                  </div>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                    {applications.map(app => (
+                      <div key={app.id} style={{ border: "1px solid var(--border)", borderRadius: 14, padding: 22 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
+                          <div>
+                            <span style={{ fontSize: 11, fontWeight: 700, color: "var(--gold)", textTransform: "uppercase" }}>Project: {app.project.title}</span>
+                            <h4 style={{ fontSize: 18, fontWeight: 800, color: "var(--navy)", margin: "4px 0 2px" }}>Team: {app.teamName}</h4>
+                            <div style={{ fontSize: 13, color: "var(--ink-muted)" }}>Members: {app.members}</div>
+                          </div>
+                          <StatusBadge status={app.status} />
+                        </div>
+
+                        <div style={{ padding: 14, background: "#F8FAFC", borderRadius: 10, borderLeft: "3px solid var(--navy)", marginBottom: 16 }}>
+                          <div style={{ fontSize: 11, fontWeight: 700, color: "var(--ink-subtle)", textTransform: "uppercase" }}>Application Pitch</div>
+                          <p style={{ fontSize: 13, color: "var(--ink)", margin: "4px 0 0", lineHeight: 1.5 }}>{app.pitch}</p>
+                        </div>
+
+                        <div style={{ display: "flex", gap: 8 }}>
+                          <button onClick={() => handleUpdateAppStatus(app.id, "Selected")} style={{ padding: "8px 16px", background: "var(--success)", color: "#fff", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+                            ✓ Select Team
+                          </button>
+                          <button onClick={() => handleUpdateAppStatus(app.id, "Shortlisted")} style={{ padding: "8px 16px", background: "#3182CE", color: "#fff", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+                            Shortlist
+                          </button>
+                          <button onClick={() => handleUpdateAppStatus(app.id, "Rejected")} style={{ padding: "8px 16px", background: "#transparent", border: "1px solid var(--border)", color: "#9B2C2C", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+                            Reject
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ══════════ TAB 5: SUBMISSIONS REVIEW ══════════ */}
+            {activeTab === "submissions" && (
+              <div>
+                <div style={{ marginBottom: 24 }}>
+                  <h2 style={{ fontSize: 22, fontWeight: 800, color: "var(--navy)", margin: "0 0 4px" }}>📤 Review Deliverable Submissions</h2>
+                  <p style={{ color: "var(--ink-muted)", fontSize: 14, margin: 0 }}>Inspect completed student code and issue verified certificates.</p>
+                </div>
+
+                {submissions.length === 0 ? (
+                  <div style={{ textAlign: "center", padding: "60px 0", color: "var(--ink-subtle)" }}>
+                    <div style={{ fontSize: 48, marginBottom: 12 }}>📂</div>
+                    <div style={{ fontWeight: 600 }}>No deliverable submissions yet.</div>
+                  </div>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                    {submissions.map(sub => (
+                      <div key={sub.id} style={{ border: "1px solid var(--border)", borderRadius: 14, padding: 22 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
+                          <div>
+                            <span style={{ fontSize: 11, fontWeight: 700, color: "var(--gold)", textTransform: "uppercase" }}>{sub.project.title}</span>
+                            <h4 style={{ fontSize: 17, fontWeight: 800, color: "var(--navy)", margin: "4px 0 2px" }}>Team: {sub.teamName}</h4>
+                          </div>
+                          <StatusBadge status={sub.status} />
+                        </div>
+
+                        <div style={{ marginBottom: 14 }}>
+                          <span style={{ fontSize: 12, color: "var(--ink-subtle)" }}>🔗 Deliverable URL: </span>
+                          <a href={sub.submissionUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 14, fontWeight: 700, color: "var(--gold)", wordBreak: "break-all" }}>
+                            {sub.submissionUrl} ↗
+                          </a>
+                        </div>
+
+                        {sub.notes && (
+                          <div style={{ padding: 12, background: "#FAFAFA", borderRadius: 8, fontSize: 13, color: "var(--ink-muted)", marginBottom: 16 }}>
+                            <strong>Student Notes:</strong> {sub.notes}
+                          </div>
+                        )}
+
+                        {sub.feedback && (
+                          <div style={{ padding: 12, background: "#FFFDF5", borderLeft: "3px solid var(--gold)", borderRadius: 8, fontSize: 13, color: "var(--ink-muted)", marginBottom: 16 }}>
+                            <strong>Reviewer Feedback:</strong> {sub.feedback}
+                          </div>
+                        )}
+
+                        <div style={{ display: "flex", gap: 10 }}>
+                          <button onClick={() => handleApproveSubmission(sub.id)} style={{ padding: "9px 20px", background: "var(--navy)", color: "#fff", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+                            ✓ Approve & Issue Certificate
+                          </button>
+                          <button onClick={() => { setSelectedSubId(sub.id); setShowRejectModal(true); }} style={{ padding: "9px 20px", background: "transparent", border: "1px solid var(--border)", color: "#9B2C2C", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+                            Request Changes / Reject
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ══════════ TAB 6: ISSUED CERTIFICATES ══════════ */}
+            {activeTab === "certificates" && (
+              <div>
+                <div style={{ marginBottom: 24 }}>
+                  <h2 style={{ fontSize: 22, fontWeight: 800, color: "var(--navy)", margin: "0 0 4px" }}>🏅 Issued Corporate Certificates</h2>
+                  <p style={{ color: "var(--ink-muted)", fontSize: 14, margin: 0 }}>Verified accreditation credentials issued by your company.</p>
+                </div>
+
+                {certificates.length === 0 ? (
+                  <div style={{ textAlign: "center", padding: "60px 0", color: "var(--ink-subtle)" }}>
+                    <div style={{ fontSize: 48, marginBottom: 12 }}>🎓</div>
+                    <div style={{ fontWeight: 600 }}>No certificates issued yet.</div>
+                    <div style={{ fontSize: 13, marginTop: 4 }}>Approve student submissions to generate credentials automatically.</div>
+                  </div>
+                ) : (
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 16 }}>
+                    {certificates.map(cert => (
+                      <div key={cert.id} style={{ border: "1px solid rgba(201,162,39,0.25)", borderRadius: 14, padding: 22, background: "linear-gradient(135deg, #FFFDF5 0%, #FFFBEB 100%)" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
+                          <span style={{ fontSize: 32 }}>🏅</span>
+                          <StatusBadge status={cert.status} />
+                        </div>
+                        <h4 style={{ fontSize: 16, fontWeight: 800, color: "var(--navy)", margin: "0 0 6px" }}>{cert.title}</h4>
+                        <div style={{ fontSize: 13, color: "var(--ink-muted)", marginBottom: 12 }}>Recipient: <strong>{cert.studentName}</strong> ({cert.studentEmail})</div>
+                        <div style={{ borderTop: "1px dashed rgba(201,162,39,0.3)", paddingTop: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <span style={{ fontSize: 11, fontFamily: "monospace", color: "var(--ink-subtle)" }}>{cert.certId}</span>
+                          <div style={{ display: "flex", gap: 6 }}>
+                            <Link href={`/certificates/${cert.id}`} style={{ fontSize: 11, fontWeight: 700, color: "var(--navy)", textDecoration: "none", padding: "4px 10px", border: "1px solid var(--navy)", borderRadius: 6 }}>View</Link>
+                            <a href={`/api/certificates/${cert.id}/pdf`} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, fontWeight: 700, color: "#fff", background: "var(--navy)", textDecoration: "none", padding: "4px 10px", borderRadius: 6 }}>PDF</a>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ══════════ TAB 7: EDIT PROFILE ══════════ */}
+            {activeTab === "profile" && (
+              <div>
+                <div style={{ marginBottom: 24 }}>
+                  <h2 style={{ fontSize: 22, fontWeight: 800, color: "var(--navy)", margin: "0 0 4px" }}>✏️ Edit Company Profile</h2>
+                  <p style={{ color: "var(--ink-muted)", fontSize: 14, margin: 0 }}>Update corporate details, branding, industry tags, and contact information.</p>
+                </div>
+
+                <form onSubmit={handleSaveProfile}>
+                  <div style={{ border: "1px solid var(--border)", borderRadius: 12, padding: 24, marginBottom: 20 }}>
+                    <h3 style={{ fontSize: 15, fontWeight: 700, color: "var(--navy)", margin: "0 0 18px", paddingBottom: 12, borderBottom: "1px solid var(--border)" }}>🏢 Basic Company Information</h3>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                      <div>
+                        <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "var(--navy)", marginBottom: 5 }}>Company Name *</label>
+                        <input value={pf.name} onChange={e => setPf(p => ({ ...p, name: e.target.value }))} style={inp()} required />
+                      </div>
+                      <div>
+                        <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "var(--navy)", marginBottom: 5 }}>Industry *</label>
+                        <select value={pf.industry} onChange={e => setPf(p => ({ ...p, industry: e.target.value }))} style={{ ...inp(), background: "#fff" }}>
+                          <option value="">Select industry</option>
+                          <option value="Technology">Technology</option>
+                          <option value="Finance">Finance</option>
+                          <option value="Healthcare">Healthcare</option>
+                          <option value="Education">Education</option>
+                          <option value="Retail">Retail</option>
+                          <option value="Other">Other</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "var(--navy)", marginBottom: 5 }}>Company Size</label>
+                        <select value={pf.companySize} onChange={e => setPf(p => ({ ...p, companySize: e.target.value }))} style={{ ...inp(), background: "#fff" }}>
+                          <option value="">Select size</option>
+                          <option value="1-50">1-50 employees</option>
+                          <option value="51-200">51-200 employees</option>
+                          <option value="201-1000">201-1000 employees</option>
+                          <option value="1001+">1001+ employees</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "var(--navy)", marginBottom: 5 }}>Founded Year</label>
+                        <input type="number" min="1800" max={new Date().getFullYear()} value={pf.foundedYear} onChange={e => setPf(p => ({ ...p, foundedYear: e.target.value }))} style={inp()} placeholder="e.g. 2020" />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ border: "1px solid var(--border)", borderRadius: 12, padding: 24, marginBottom: 20 }}>
+                    <h3 style={{ fontSize: 15, fontWeight: 700, color: "var(--navy)", margin: "0 0 18px", paddingBottom: 12, borderBottom: "1px solid var(--border)" }}>🌐 Location & Contact Links</h3>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                      <div>
+                        <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "var(--navy)", marginBottom: 5 }}>Location</label>
+                        <input value={pf.location} onChange={e => setPf(p => ({ ...p, location: e.target.value }))} style={inp()} placeholder="City, Country" />
+                      </div>
+                      <div>
+                        <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "var(--navy)", marginBottom: 5 }}>Phone Number</label>
+                        <input value={pf.phone} onChange={e => setPf(p => ({ ...p, phone: e.target.value }))} style={inp()} placeholder="+1 (555) 000-0000" />
+                      </div>
+                      <div>
+                        <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "var(--navy)", marginBottom: 5 }}>Website URL</label>
+                        <input type="url" value={pf.website} onChange={e => setPf(p => ({ ...p, website: e.target.value }))} style={inp()} placeholder="https://example.com" />
+                      </div>
+                      <div>
+                        <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "var(--navy)", marginBottom: 5 }}>LinkedIn URL</label>
+                        <input type="url" value={pf.linkedinUrl} onChange={e => setPf(p => ({ ...p, linkedinUrl: e.target.value }))} style={inp()} placeholder="https://linkedin.com/company/..." />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ border: "1px solid var(--border)", borderRadius: 12, padding: 24, marginBottom: 20 }}>
+                    <h3 style={{ fontSize: 15, fontWeight: 700, color: "var(--navy)", margin: "0 0 18px", paddingBottom: 12, borderBottom: "1px solid var(--border)" }}>📝 Company Description & Bio</h3>
+                    <div style={{ marginBottom: 16 }}>
+                      <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "var(--navy)", marginBottom: 5 }}>Short Tagline / Bio</label>
+                      <textarea value={pf.bio} onChange={e => setPf(p => ({ ...p, bio: e.target.value }))} rows={2} style={{ ...inp(), resize: "vertical" as const, height: "auto" }} placeholder="Short tagline about your company..." />
+                    </div>
+                    <div>
+                      <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "var(--navy)", marginBottom: 5 }}>Full Company Description</label>
+                      <textarea value={pf.companyDescription} onChange={e => setPf(p => ({ ...p, companyDescription: e.target.value }))} rows={4} style={{ ...inp(), resize: "vertical" as const, height: "auto" }} placeholder="Describe your corporate mission, engineering culture, and internship opportunities..." />
+                    </div>
+                  </div>
+
+                  <div style={{ display: "flex", gap: 12 }}>
+                    <button type="submit" disabled={pfSaving} style={{ padding: "12px 32px", background: pfSaving ? "#A0AEC0" : "var(--navy)", color: "#fff", border: "none", borderRadius: 10, fontWeight: 800, fontSize: 15, cursor: pfSaving ? "not-allowed" : "pointer" }}>
+                      {pfSaving ? "Saving..." : "Save Company Profile"}
+                    </button>
+                  </div>
+
+                  {pfSaved && (
+                    <div style={{ marginTop: 14, padding: "12px 16px", background: "rgba(56,161,105,0.08)", border: "1px solid rgba(56,161,105,0.25)", borderRadius: 10, color: "#276749", fontWeight: 600 }}>
+                      ✓ Profile saved successfully!
+                    </div>
+                  )}
+                  {pfError && (
+                    <div style={{ marginTop: 14, padding: "12px 16px", background: "rgba(229,62,62,0.08)", border: "1px solid rgba(229,62,62,0.25)", borderRadius: 10, color: "#9B2C2C", fontWeight: 600 }}>
+                      ⚠ {pfError}
+                    </div>
+                  )}
+                </form>
+              </div>
+            )}
+
+            {/* ══════════ TAB 8: BILLING & SPONSORSHIP ══════════ */}
+            {activeTab === "billing" && (
+              <div>
+                <div style={{ marginBottom: 24 }}>
+                  <h2 style={{ fontSize: 22, fontWeight: 800, color: "var(--navy)", margin: "0 0 4px" }}>💳 Corporate Sponsorship & Accreditation Badge</h2>
+                  <p style={{ color: "var(--ink-muted)", fontSize: 14, margin: 0 }}>Manage your corporate sponsorship tier and certificate verification seal.</p>
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 24 }}>
+                  <div style={{ border: "2px solid var(--gold)", borderRadius: 14, padding: 24, background: "linear-gradient(135deg, #FFFDF5 0%, #FFFBEB 100%)" }}>
+                    <span style={{ fontSize: 11, fontWeight: 800, color: "var(--gold)", background: "rgba(201,162,39,0.15)", padding: "3px 8px", borderRadius: 4, textTransform: "uppercase" }}>Active Tier</span>
+                    <h3 style={{ fontSize: 24, fontWeight: 800, color: "var(--navy)", margin: "10px 0 4px" }}>Verified Corporate Partner</h3>
+                    <p style={{ fontSize: 13, color: "var(--ink-muted)", margin: "0 0 16px" }}>Unlimited project postings, student applications, and verified certificate generation.</p>
+                    <ul style={{ padding: 0, margin: "0 0 20px", listStyle: "none", fontSize: 13, color: "var(--navy)", display: "flex", flexDirection: "column", gap: 6 }}>
+                      <li>✓ Unlimited live project listings</li>
+                      <li>✓ Priority student applicant access</li>
+                      <li>✓ Publicly verifiable digital certificates</li>
+                      <li>✓ Direct PDF certificate downloads</li>
+                    </ul>
+                    <div style={{ fontSize: 12, color: "#276749", fontWeight: 700 }}>Status: ACTIVE (Sponsored Ecosystem)</div>
+                  </div>
+
+                  <div style={{ border: "1px solid var(--border)", borderRadius: 14, padding: 24, background: "#FAFAFA" }}>
+                    <h3 style={{ fontSize: 16, fontWeight: 700, color: "var(--navy)", margin: "0 0 8px" }}>🔐 Cryptographic Seal</h3>
+                    <p style={{ fontSize: 13, color: "var(--ink-muted)", margin: "0 0 14px", lineHeight: 1.5 }}>CertiTask signs all issued certificates using Neon PostgreSQL digital hashes. Recruiters can verify credentials at <code>/verify</code>.</p>
+                    <div style={{ padding: 12, background: "var(--navy)", color: "var(--gold)", borderRadius: 8, fontFamily: "monospace", fontSize: 12 }}>
+                      STATUS: VERIFIED CORPORATE SPONSOR<br />
+                      DOMAIN: {compDomain}<br />
+                      ISSUANCE: UNLIMITED
+                    </div>
                   </div>
                 </div>
-
-                <p style={{ fontSize: 14, color: "var(--ink-muted)", lineHeight: 1.6, marginBottom: 16 }}>
-                  <strong>Company Bio:</strong> {userProfile.bio}
-                </p>
-
-                <div style={{ borderTop: "1px solid var(--border)", paddingTop: 16 }}>
-                  <span style={{ fontSize: 12, color: "var(--ink-subtle)" }}>Verified Organization Domain</span>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: "var(--navy)", marginTop: 2 }}>{userProfile.domain}</div>
-                </div>
-
-                <div style={{ marginTop: 16, display: 'flex', gap: 12 }}>
-                  <Link href="/company/profile" className="btn-primary" style={{ padding: '8px 14px', fontWeight: 700, textDecoration: 'none', display: 'inline-block', background: 'var(--navy)', color: 'white', borderRadius: '6px', cursor: 'pointer' }}>Edit Full Profile</Link>
-                  <button onClick={handleSaveProfile} className="btn-primary" style={{ padding: '8px 14px', fontWeight: 700 }}>Save Changes</button>
-                  <button onClick={() => { setProfileForm({ name: userProfile.name, bio: userProfile.bio, website: userProfile.website, industry: userProfile.industry, companySize: userProfile.companySize, location: userProfile.location, linkedinUrl: userProfile.linkedinUrl, companyDescription: userProfile.companyDescription }); alert('Reverted to saved profile'); }} className="btn-ghost" style={{ padding: '8px 14px', fontWeight: 700 }}>Revert</button>
-                </div>
               </div>
-            </div>
-          )}
+            )}
 
-        </section>
-      </main>
+          </div>
+        </main>
+      </div>
 
-      {/* ── FR-C8: Feedback/Decline Modal ────────────────────── */}
+      {/* ── Modal: Reject / Request Changes ── */}
       {showRejectModal && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(15,42,74,0.6)", backdropFilter: "blur(4px)", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-          <div style={{ background: "#fff", borderRadius: "var(--radius-xl)", padding: 32, maxWidth: 480, width: "100%", boxShadow: "var(--shadow-lg)" }}>
-            <h3 style={{ fontSize: 18, fontWeight: 800, color: "var(--navy)", marginBottom: 6 }}>Decline Submission</h3>
-            <p style={{ fontSize: 13, color: "var(--ink-muted)", marginBottom: 20 }}>Provide constructive feedback for the team to address and resubmit.</p>
-
+        <div style={{ position: "fixed", inset: 0, background: "rgba(10,29,51,0.6)", backdropFilter: "blur(4px)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+          <div style={{ background: "#fff", borderRadius: 20, padding: 32, maxWidth: 480, width: "100%", boxShadow: "var(--shadow-lg)" }}>
+            <h3 style={{ fontSize: 20, fontWeight: 800, color: "var(--navy)", margin: "0 0 4px" }}>Request Changes / Reject</h3>
+            <p style={{ color: "var(--ink-muted)", fontSize: 13, margin: "0 0 20px" }}>Provide detailed feedback to the student team explaining why deliverables require revision.</p>
             <form onSubmit={handleRejectSubmission}>
-              <div className="form-group">
-                <label className="form-label">Constructive Feedback</label>
-                <textarea
-                  className="form-input"
-                  rows={4}
-                  style={{ height: "auto", padding: "10px 14px" }}
-                  placeholder="e.g. Please update the README configuration details and format the API endpoints documentation..."
-                  value={feedbackText}
-                  onChange={(e) => setFeedbackText(e.target.value)}
-                  required
-                />
+              <div style={{ marginBottom: 20 }}>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "var(--navy)", marginBottom: 5 }}>Feedback Remarks *</label>
+                <textarea rows={4} style={{ ...inp(), resize: "vertical" as const, height: "auto" }} value={feedbackMsg} onChange={e => setFeedbackMsg(e.target.value)} placeholder="Explain required fixes, code quality improvements, or missing deliverables..." required />
               </div>
-
-              <div style={{ display: "flex", gap: 12, marginTop: 24 }}>
+              <div style={{ display: "flex", gap: 10 }}>
                 <button type="button" onClick={() => setShowRejectModal(false)} className="btn-ghost" style={{ flex: 1 }}>Cancel</button>
-                <button type="submit" className="btn-primary" style={{ flex: 1, background: "#C53030" }}>Return Feedback</button>
+                <button type="submit" style={{ flex: 2, padding: "12px 0", background: "#9B2C2C", color: "#fff", border: "none", borderRadius: 10, fontWeight: 700, fontSize: 14, cursor: "pointer" }}>Send Feedback</button>
               </div>
             </form>
           </div>
         </div>
       )}
 
-      {/* ── FR-C4: Post-Project Ad Confirmation Modal ────────── */}
-      {showAdConfirmation && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(15,42,74,0.6)", backdropFilter: "blur(4px)", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-          <div style={{ background: "#fff", borderRadius: "var(--radius-xl)", padding: 32, maxWidth: 480, width: "100%", boxShadow: "var(--shadow-lg)", textAlign: "center" }}>
-            <div style={{ width: 56, height: 56, borderRadius: "50%", background: "rgba(56,161,105,0.12)", color: "#38A169", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" style={{ width: 28, height: 28 }}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-              </svg>
-            </div>
-            <h3 style={{ fontSize: 20, fontWeight: 800, color: "var(--navy)", marginBottom: 8 }}>Project Posted Live!</h3>
-            <p style={{ fontSize: 14, color: "var(--ink-muted)", marginBottom: 24, lineHeight: 1.5 }}>
-              Your project listing is live and students can apply immediately.
-            </p>
-
-            {/* Ad Unit */}
-            <div style={{ background: "#F7FAFC", border: "1px solid var(--border)", borderRadius: 12, padding: 18, marginBottom: 24 }}>
-              <span style={{ fontSize: 9, color: "var(--gold)", border: "1px solid var(--gold)", padding: "2px 4px", borderRadius: 3, textTransform: "uppercase", fontWeight: 700 }}>Sponsored Ad</span>
-              <h4 style={{ fontSize: 13, fontWeight: 700, color: "var(--navy)", marginTop: 8, marginBottom: 4 }}>Need Professional Certifications?</h4>
-              <p style={{ fontSize: 12, color: "var(--ink-muted)", lineHeight: 1.4 }}>Gain industry-grade accredited qualifications in cloud systems and AWS architectures free with CertiTask Partners.</p>
-              <button onClick={() => setAdClickCount(c => c + 1)} style={{ marginTop: 12, background: "var(--navy)", color: "#fff", border: "none", padding: "6px 14px", borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>Register Now</button>
-            </div>
-
-            <button type="button" onClick={() => setShowAdConfirmation(false)} className="btn-primary" style={{ width: "100%" }}>Done</button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

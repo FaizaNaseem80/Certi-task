@@ -15,12 +15,40 @@ export async function POST(req: Request) {
 
     const cleanEmail = email.toLowerCase().trim();
 
-    // ── Regular user login via Neon PostgreSQL DB ──
-    const user = await prisma.user.findUnique({
-      where: { email: cleanEmail },
-    });
+    // Try fetching user from database
+    let user = null;
+    try {
+      user = await prisma.user.findUnique({
+        where: { email: cleanEmail },
+      });
+    } catch (dbErr) {
+      console.error("Database connection error during login lookup:", dbErr);
+    }
 
     if (!user) {
+      // Check for super admin credentials from env
+      const adminEmail = process.env.SUPER_ADMIN_EMAIL?.toLowerCase().trim();
+      const adminPass = process.env.SUPER_ADMIN_PASSWORD;
+
+      if (adminEmail && adminPass && cleanEmail === adminEmail && password === adminPass) {
+        const token = await createToken({
+          userId: "super-admin-id",
+          email: cleanEmail,
+          name: "Super Admin",
+          role: "ADMIN" as any,
+        });
+        await setAuthCookie(token);
+        return NextResponse.json({
+          success: true,
+          user: {
+            id: "super-admin-id",
+            name: "Super Admin",
+            email: cleanEmail,
+            role: "admin",
+          },
+        });
+      }
+
       return NextResponse.json(
         { error: "Invalid email or password. Please check your credentials." },
         { status: 401 }
@@ -28,7 +56,13 @@ export async function POST(req: Request) {
     }
 
     // Verify bcrypt password
-    const isMatch = await verifyPassword(password, user.password);
+    let isMatch = false;
+    try {
+      isMatch = await verifyPassword(password, user.password);
+    } catch (passErr) {
+      console.error("Password verification error:", passErr);
+    }
+
     if (!isMatch) {
       return NextResponse.json(
         { error: "Invalid email or password. Please check your credentials." },

@@ -1,4 +1,6 @@
-import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
+import { PDFDocument, PDFFont, StandardFonts, rgb, Color } from 'pdf-lib';
+import fs from 'node:fs/promises';
+import path from 'node:path';
 import { logoBase64 } from './logoBase64';
 
 // Helper to convert hex to rgb
@@ -59,7 +61,7 @@ export async function generateCertificatePdf(certificate: {
     borderColor: goldColor,
   });
 
-  const drawCenteredText = (text: string, font: any, size: number, y: number, color: any) => {
+  const drawCenteredText = (text: string, font: PDFFont, size: number, y: number, color: Color) => {
     const textWidth = font.widthOfTextAtSize(text, size);
     page.drawText(text, {
       x: (width - textWidth) / 2,
@@ -74,6 +76,14 @@ export async function generateCertificatePdf(certificate: {
   const logoImageBytes = Buffer.from(logoBase64, 'base64');
   const logoImage = await doc.embedPng(logoImageBytes);
   const logoDims = logoImage.scale(0.35); // scale down the 128x128 image
+
+  let signatureImage = null;
+  try {
+    const signatureImageBytes = await fs.readFile(path.join(process.cwd(), 'public', 'signature.png'));
+    signatureImage = await doc.embedPng(signatureImageBytes);
+  } catch {
+    console.warn("signature.png not found, rendering text signature line");
+  }
 
   page.drawImage(logoImage, {
     x: width / 2 - logoDims.width / 2,
@@ -117,20 +127,21 @@ export async function generateCertificatePdf(certificate: {
   page.drawText('Issue Date:', { x: 100, y: bottomY, size: 11, font: fontHelveticaBold, color: navyColor });
   page.drawText(certificate.issueDate, { x: 170, y: bottomY, size: 11, font: fontHelvetica, color: grayColor });
 
-  page.drawText('Valid Until:', { x: 100, y: bottomY - 20, size: 11, font: fontHelveticaBold, color: navyColor });
-  page.drawText(certificate.expiryDate, { x: 170, y: bottomY - 20, size: 11, font: fontHelvetica, color: grayColor });
-
   // Center: Certificate ID
   drawCenteredText(`ID: ${certificate.certId}`, fontHelveticaBold, 14, 480, goldColor);
   drawCenteredText('Verify at: certitask.com/verify', fontHelvetica, 10, 500, lightGrayColor);
 
-  // Right: Signature Line
-  page.drawLine({
-    start: { x: width - 250, y: bottomY + 15 },
-    end: { x: width - 100, y: bottomY + 15 },
-    thickness: 1,
-    color: navyColor,
-  });
+  if (signatureImage) {
+    const signatureScale = Math.min(150 / signatureImage.width, 65 / signatureImage.height);
+    const signatureWidth = signatureImage.width * signatureScale;
+    const signatureHeight = signatureImage.height * signatureScale;
+    page.drawImage(signatureImage, {
+      x: width - 175 - (signatureWidth / 2),
+      y: bottomY + 18,
+      width: signatureWidth,
+      height: signatureHeight,
+    });
+  }
   
   const signText = 'Authorized Signatory';
   const signWidth = fontHelveticaBold.widthOfTextAtSize(signText, 11);
