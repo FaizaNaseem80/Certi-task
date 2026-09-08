@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -60,6 +60,16 @@ export default function ResetPasswordPage() {
 
   const strength = getPasswordStrength(password);
 
+  useEffect(() => {
+    const token = new URLSearchParams(window.location.search).get("token");
+    if (token) {
+      window.setTimeout(() => {
+        setCode(token);
+        setStep("password");
+      }, 0);
+    }
+  }, []);
+
   async function handleVerifyCode(e: React.FormEvent) {
     e.preventDefault();
     if (!code) return;
@@ -84,10 +94,16 @@ export default function ResetPasswordPage() {
     setError("");
 
     try {
-      await new Promise((resolve) => setTimeout(resolve, 800));
+      const response = await fetch("/api/auth/reset-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: code, password }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Failed to reset password.");
       setStep("done");
-    } catch {
-      setError("Failed to reset password. Please try again.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to reset password. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -126,7 +142,7 @@ export default function ResetPasswordPage() {
           <>
             <h1 className="auth-heading" style={{ textAlign: "center" }}>Enter reset code</h1>
             <p className="auth-sub" style={{ textAlign: "center", marginBottom: 28 }}>
-              We sent a 6-digit code to your email. Enter it below to continue.
+              Paste the reset token from your email to continue.
             </p>
 
             <form onSubmit={handleVerifyCode} noValidate>
@@ -139,9 +155,9 @@ export default function ResetPasswordPage() {
                     type="text"
                     inputMode="numeric"
                     pattern="[0-9]*"
-                    maxLength={6}
+                    maxLength={128}
                     className={`form-input${error ? " has-error" : ""}`}
-                    placeholder="000000"
+                    placeholder="Paste reset token"
                     value={code}
                     onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
                     style={{ letterSpacing: "0.3em", fontWeight: 600 }}
@@ -155,9 +171,9 @@ export default function ResetPasswordPage() {
                 type="submit"
                 id="verify-code-submit"
                 className={`btn-primary mt-4${loading ? " loading" : ""}`}
-                disabled={loading || code.length < 6}
+                disabled={loading || code.length < 32}
               >
-                {loading ? <><span className="spinner" />Verifying…</> : "Verify Code"}
+                {loading ? <><span className="spinner" />Continuing…</> : "Continue"}
               </button>
             </form>
 

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
+import { isString } from "@/lib/validation";
 
 export async function GET() {
   const session = await getSession();
@@ -56,8 +57,16 @@ export async function POST(req: Request) {
   try {
     const { projectId, teamName, members, pitch } = await req.json();
 
-    if (!projectId || !teamName || !members || !pitch) {
+    if (!isString(projectId, 100) || !isString(teamName, 200) || !isString(members, 4000) || !isString(pitch, 10000)) {
       return NextResponse.json({ error: "All fields are required" }, { status: 400 });
+    }
+
+    const project = await prisma.project.findFirst({
+      where: { id: projectId, status: "Active" },
+      select: { id: true },
+    });
+    if (!project) {
+      return NextResponse.json({ error: "Project is not available" }, { status: 404 });
     }
 
     const application = await prisma.application.create({

@@ -2,14 +2,16 @@ import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
 
-const connectionString =
-  process.env.DATABASE_URL ||
-  "postgresql://neondb_owner:npg_kPHUoQT95ifp@ep-misty-mode-ayy0761x.c-5.us-east-2.aws.neon.tech/certitask?sslmode=require&uselibpqcompat=true";
+const connectionString = process.env.DATABASE_URL;
+
+if (!connectionString) {
+  throw new Error("DATABASE_URL is not configured");
+}
 
 const pool = new Pool({
   connectionString,
   ssl: {
-    rejectUnauthorized: false,
+    rejectUnauthorized: true,
   },
   max: 10,
   idleTimeoutMillis: 30000,

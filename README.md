@@ -47,10 +47,25 @@ Create a `.env` (or `.env.local`) file in the root directory of the project:
 
 ```env
 # Neon PostgreSQL Database Connection String
-DATABASE_URL="postgresql://neondb_owner:npg_kPHUoQT95ifp@ep-misty-mode-ayy0761x.c-5.us-east-2.aws.neon.tech/certitask?sslmode=require"
+DATABASE_URL="postgresql://user:password@host:port/database?sslmode=require"
 
 # JWT Secret Key for Session Encryption
-JWT_SECRET="certitask_secret_key_neon_db_2026_super_secure"
+JWT_SECRET="replace-with-a-long-random-secret"
+
+# Public URL and password-reset email delivery
+APP_URL="https://your-production-domain.example"
+SMTP_HOST="smtp.example.com"
+SMTP_PORT="587"
+SMTP_USER="smtp-user"
+SMTP_PASS="smtp-password"
+EMAIL_FROM="no-reply@your-production-domain.example"
+
+# Admin authentication uses a bcrypt hash generated locally.
+SUPER_ADMIN_PASSWORD_HASH="replace-with-bcrypt-password-hash"
+
+# Required for distributed production rate limiting
+UPSTASH_REDIS_REST_URL="https://your-instance.upstash.io"
+UPSTASH_REDIS_REST_TOKEN="your-upstash-rest-token"
 ```
 
 ---
@@ -72,6 +87,12 @@ npm install
 Run Prisma database push to create the required database tables (`User`, `Certificate`, `Task`) in your Neon PostgreSQL database:
 ```bash
 npx prisma db push
+```
+
+For production, apply the committed migrations instead:
+
+```bash
+npx prisma migrate deploy
 ```
 
 ### 4. Start the Development Server

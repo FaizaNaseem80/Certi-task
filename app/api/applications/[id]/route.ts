@@ -15,7 +15,7 @@ export async function PATCH(
     const { id } = await params;
     const { status } = await req.json();
 
-    if (!status) {
+    if (!['Pending', 'Shortlisted', 'Selected', 'Rejected'].includes(status)) {
       return NextResponse.json({ error: "Status is required" }, { status: 400 });
     }
 

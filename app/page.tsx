@@ -431,7 +431,7 @@ export default async function Home() {
             Join the CertiTask network today. Showcase verified experience, earn certificates, and connect directly with companies.
           </p>
           <div className="pt-4">
-            <Button href="/auth/login" variant="gold" className="px-10 py-4 text-lg">
+            <Button href="/auth/signup" variant="gold" className="px-10 py-4 text-lg">
               Get Started
             </Button>
           </div>

@@ -79,12 +79,10 @@ export async function PATCH(req: Request) {
         const cnic = String(payload.cnicNumber).trim();
         if (/^\d{5}-\d{7}-\d{1}$/.test(cnic)) {
           allowed.cnicNumber = cnic;
-          allowed.cnicVerified = true;
         } else if (cnic.length > 0) {
           const digits = cnic.replace(/\D/g, '');
           if (digits.length === 13) {
             allowed.cnicNumber = `${digits.slice(0, 5)}-${digits.slice(5, 12)}-${digits.slice(12)}`;
-            allowed.cnicVerified = true;
           }
         }
       }
@@ -123,13 +121,11 @@ export async function PATCH(req: Request) {
         const cnic = String(payload.cnicNumber).trim();
         if (/^\d{5}-\d{7}-\d{1}$/.test(cnic)) {
           allowed.cnicNumber = cnic;
-          allowed.cnicVerified = true;
         } else if (cnic.length > 0) {
           const digits = cnic.replace(/\D/g, '');
           if (digits.length === 13) {
             const formatted = `${digits.slice(0, 5)}-${digits.slice(5, 12)}-${digits.slice(12)}`;
             allowed.cnicNumber = formatted;
-            allowed.cnicVerified = true;
           }
         }
       }

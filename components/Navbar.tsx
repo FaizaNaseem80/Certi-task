@@ -87,7 +87,7 @@ export const Navbar = () => {
 
           {/* Get Started Button */}
           <div className="hidden md:flex items-center space-x-3">
-            <Button href="/auth/login" variant="gold">
+            <Button href="/auth/signup" variant="gold">
               Get Started
             </Button>
           </div>
@@ -167,7 +167,7 @@ export const Navbar = () => {
           })}
           <div className="pt-4 pb-2 border-t border-paper/10 px-3 flex flex-col gap-2">
             <Button
-              href="/auth/login"
+              href="/auth/signup"
               variant="gold"
               className="w-full justify-center animate-pulse"
               onClick={() => setIsOpen(false)}

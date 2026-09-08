@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { COOKIE_NAME, verifyToken } from "@/lib/auth";
+import { COOKIE_NAME } from "@/lib/auth-constants";
+import { verifyToken } from "@/lib/auth-token";
+import { isSameOrigin } from "@/lib/origin";
 
 function matchesPath(pathname: string, basePath: string) {
   return pathname === basePath || pathname.startsWith(`${basePath}/`);
@@ -9,16 +11,28 @@ function matchesPath(pathname: string, basePath: string) {
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  const isPublicAuthRoute = [
-    "/auth/login",
-    "/auth/signup",
-    "/auth/forgot-password",
-    "/auth/reset-password",
-  ].some((path) => matchesPath(pathname, path));
+  if (
+    pathname.startsWith("/api/") &&
+    ["POST", "PUT", "PATCH", "DELETE"].includes(req.method) &&
+    !isSameOrigin(req)
+  ) {
+    return NextResponse.json({ error: "Cross-site request blocked" }, { status: 403 });
+  }
+
+  if (pathname === "/admin/signup") {
+    return NextResponse.redirect(new URL("/admin/login", req.url));
+  }
+
+  const isLoginRoute = matchesPath(pathname, "/auth/login");
 
   const isCompanyRoute = matchesPath(pathname, "/company");
   const isStudentRoute = matchesPath(pathname, "/student");
   const isAdminRoute = matchesPath(pathname, "/admin") && !matchesPath(pathname, "/admin/login");
+
+  // Redirect exactly /admin to /admin/dashboard to avoid 404s
+  if (pathname === "/admin") {
+    return NextResponse.redirect(new URL("/admin/dashboard", req.url));
+  }
 
   const token = req.cookies.get(COOKIE_NAME)?.value;
   let sessionPayload: Awaited<ReturnType<typeof verifyToken>> = null;
@@ -42,7 +56,7 @@ export async function proxy(req: NextRequest) {
   }
 
   /* 2. Authenticated user visiting auth pages -> redirect to proper dashboard */
-  if (sessionPayload && isPublicAuthRoute) {
+  if (sessionPayload && isLoginRoute) {
     let dest = "/student/dashboard";
     if (sessionPayload.role === "ADMIN") dest = "/admin/dashboard";
     else if (sessionPayload.role === "COMPANY") dest = "/company/dashboard";
@@ -93,6 +107,7 @@ export default proxy;
 
 export const config = {
   matcher: [
+    "/api/:path*",
     "/((?!_next/static|_next/image|favicon.ico|api|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };

@@ -40,6 +40,13 @@ export async function PATCH(
       return NextResponse.json({ error: "This user cannot be modified" }, { status: 403 });
     }
 
+    if (updateData.isVerified === false) {
+      await prisma.session.updateMany({
+        where: { userId: id, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
+    }
+
     const updatedUser = await prisma.user.update({
       where: { id },
       data: updateData,
@@ -75,6 +82,7 @@ export async function DELETE(
       return NextResponse.json({ error: "This user cannot be deleted" }, { status: 403 });
     }
 
+    await prisma.session.deleteMany({ where: { userId: id } });
     await prisma.user.delete({
       where: { id },
     });

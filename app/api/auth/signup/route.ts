@@ -1,16 +1,27 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { hashPassword, createToken, setAuthCookie } from "@/lib/auth";
+import { isEmail, isString } from "@/lib/validation";
+import { isRateLimited } from "@/lib/rate-limit";
 
 export async function POST(req: Request) {
   try {
+    const clientKey = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+    if (await isRateLimited(`signup:${clientKey}`, 5, 60 * 60 * 1000)) {
+      return NextResponse.json({ error: "Too many signup attempts. Try again later." }, { status: 429 });
+    }
+
     const { email, password, fullName, role } = await req.json();
 
-    if (!email || !password || !fullName) {
+    if (!isEmail(email) || !isString(password, 128) || password.length < 8 || !isString(fullName, 120)) {
       return NextResponse.json(
-        { error: "Email, password, and full name are required." },
+        { error: "Enter a valid email, a password of 8-128 characters, and a name of 1-120 characters." },
         { status: 400 }
       );
+    }
+
+    if (role !== "student" && role !== "company") {
+      return NextResponse.json({ error: "A valid account role is required." }, { status: 400 });
     }
 
     const cleanEmail = email.toLowerCase().trim();

@@ -33,11 +33,16 @@ export default function ForgotPasswordPage() {
     setError("");
 
     try {
-      // Simulated reset instructions dispatch
-      await new Promise((resolve) => setTimeout(resolve, 800));
+      const response = await fetch("/api/auth/forgot-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Could not send reset email.");
       setSent(true);
-    } catch {
-      setError("Could not send reset email. Please try again.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not send reset email. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -143,7 +148,7 @@ export default function ForgotPasswordPage() {
               Check your inbox!
             </h2>
             <p className="auth-sub" style={{ textAlign: "center", marginBottom: 24 }}>
-              We&apos;ve sent a password reset code to{" "}
+              If the account exists, we&apos;ve sent a password reset link to{" "}
               <strong style={{ color: "var(--navy)" }}>{email}</strong>.
             </p>
 
@@ -159,7 +164,7 @@ export default function ForgotPasswordPage() {
             </div>
 
             <Link href="/auth/reset-password" className="btn-primary" style={{ display: "flex", textDecoration: "none" }}>
-              Enter Reset Code →
+              Open Reset Link →
             </Link>
 
             <div style={{ marginTop: 16 }}>

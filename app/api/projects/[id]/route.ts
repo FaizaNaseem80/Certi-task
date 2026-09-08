@@ -25,6 +25,15 @@ export async function PATCH(
       return NextResponse.json({ error: "Project not found or unauthorized" }, { status: 404 });
     }
 
+    if (status !== undefined && !["Active", "Paused", "Closed"].includes(status)) {
+      return NextResponse.json({ error: "Invalid project status" }, { status: 400 });
+    }
+
+    const parsedTeamCap = teamCap === undefined ? undefined : Number(teamCap);
+    if (parsedTeamCap !== undefined && (!Number.isInteger(parsedTeamCap) || parsedTeamCap < 1 || parsedTeamCap > 1000)) {
+      return NextResponse.json({ error: "Team capacity must be an integer from 1 to 1000" }, { status: 400 });
+    }
+
     const updated = await prisma.project.update({
       where: { id },
       data: {
@@ -34,7 +43,7 @@ export async function PATCH(
         ...(description && { description }),
         ...(requiredSkills && { requiredSkills }),
         ...(deliverables && { deliverables }),
-        ...(teamCap && { teamCap: parseInt(teamCap) }),
+        ...(parsedTeamCap !== undefined && { teamCap: parsedTeamCap }),
       },
     });
 

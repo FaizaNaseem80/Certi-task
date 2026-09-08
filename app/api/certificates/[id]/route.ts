@@ -15,7 +15,7 @@ export async function PATCH(
     const { id } = await params;
     const { status } = await req.json(); // e.g. "Revoked" or "Disputed"
 
-    if (!status) {
+    if (!['Verified', 'Revoked', 'Disputed'].includes(status)) {
       return NextResponse.json({ error: "Status is required" }, { status: 400 });
     }
 

@@ -1,9 +1,15 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyPassword, createToken, setAuthCookie } from "@/lib/auth";
+import { isRateLimited } from "@/lib/rate-limit";
 
 export async function POST(req: Request) {
   try {
+    const clientKey = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+    if (await isRateLimited(`login:${clientKey}`, 10, 15 * 60 * 1000)) {
+      return NextResponse.json({ error: "Too many login attempts. Try again later." }, { status: 429 });
+    }
+
     const { email, password } = await req.json();
 
     if (!email || !password) {
@@ -28,14 +34,17 @@ export async function POST(req: Request) {
     if (!user) {
       // Check for super admin credentials from env
       const adminEmail = process.env.SUPER_ADMIN_EMAIL?.toLowerCase().trim();
-      const adminPass = process.env.SUPER_ADMIN_PASSWORD;
+      const adminPassHash = process.env.SUPER_ADMIN_PASSWORD_HASH;
+      const adminPasswordMatches = Boolean(
+        adminPassHash && await verifyPassword(password, adminPassHash)
+      );
 
-      if (adminEmail && adminPass && cleanEmail === adminEmail && password === adminPass) {
+      if (adminEmail && cleanEmail === adminEmail && adminPasswordMatches) {
         const token = await createToken({
-          userId: "super-admin-id",
+          userId: "super-admin",
           email: cleanEmail,
           name: "Super Admin",
-          role: "ADMIN" as any,
+          role: "ADMIN",
         });
         await setAuthCookie(token);
         return NextResponse.json({
@@ -67,6 +76,13 @@ export async function POST(req: Request) {
       return NextResponse.json(
         { error: "Invalid email or password. Please check your credentials." },
         { status: 401 }
+      );
+    }
+
+    if (!user.isVerified) {
+      return NextResponse.json(
+        { error: "This account has not been verified." },
+        { status: 403 }
       );
     }
 

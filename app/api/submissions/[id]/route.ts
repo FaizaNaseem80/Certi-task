@@ -3,8 +3,16 @@ import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { generateCertificatePdf } from '@/lib/pdf';
 import { sendCertificateEmail } from '@/lib/email';
+import { randomUUID } from 'node:crypto';
 
-async function createCertificateIfMissing(submission: any, companyId: string) {
+type CertificateSubmission = {
+  projectId: string;
+  teamName: string;
+  student?: { email: string; name: string } | null;
+  project: { title: string };
+};
+
+async function createCertificateIfMissing(submission: CertificateSubmission, companyId: string) {
   // Avoid duplicate certificates for same submission/student
   const studentEmail = submission.student?.email || `${submission.teamName}@example.com`;
   const exists = await prisma.certificate.findFirst({
@@ -22,7 +30,7 @@ async function createCertificateIfMissing(submission: any, companyId: string) {
 
   const cert = await prisma.certificate.create({
     data: {
-      certId: `CERT-${Math.floor(100000 + Math.random() * 900000)}`,
+      certId: `CERT-${randomUUID()}`,
       title: `Accredited Certification in ${submission.project.title}`,
       studentName: submission.student?.name || submission.teamName,
       studentEmail,
@@ -75,7 +83,7 @@ export async function PATCH(
     const payload = await req.json();
     const { status, feedback } = payload;
 
-    if (!status) {
+    if (!['CompanyApproved', 'Rejected', 'StudentConfirmed'].includes(status)) {
       return NextResponse.json({ error: "Status is required" }, { status: 400 });
     }
 
@@ -93,6 +101,10 @@ export async function PATCH(
     if (session.role === "COMPANY") {
       if (submission.project.companyId !== session.userId) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
+
+      if (status === "StudentConfirmed") {
+        return NextResponse.json({ error: "Invalid company action" }, { status: 400 });
       }
 
       // Company confirms deliverable
@@ -135,7 +147,7 @@ export async function PATCH(
     // STUDENT actions
     if (session.role === "STUDENT") {
       // Only the submitting student/team may confirm
-      if (submission.studentId && submission.studentId !== session.userId) {
+      if (submission.studentId !== session.userId) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
       }
 

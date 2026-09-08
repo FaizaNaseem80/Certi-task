@@ -17,7 +17,7 @@ export async function sendCertificateEmail(opts: SendOptions) {
 
   if (!host || !port || !user || !pass) {
     // Email not configured - log and exit gracefully
-    console.warn('SMTP not configured. Skipping sending certificate email to', opts.to);
+    console.warn('SMTP not configured. Skipping email delivery');
     return { skipped: true };
   }
 
@@ -42,8 +42,36 @@ export async function sendCertificateEmail(opts: SendOptions) {
           },
         ]
       : [],
-  } as any;
+  };
 
   const info = await transporter.sendMail(mail);
   return info;
+}
+
+export function isSmtpConfigured(): boolean {
+  return Boolean(
+    process.env.SMTP_HOST &&
+    process.env.SMTP_PORT &&
+    process.env.SMTP_USER &&
+    process.env.SMTP_PASS &&
+    process.env.EMAIL_FROM
+  );
+}
+
+export async function sendPasswordResetEmail(to: string, resetUrl: string) {
+  if (!isSmtpConfigured()) return { skipped: true };
+
+  const transporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST,
+    port: Number(process.env.SMTP_PORT),
+    secure: Number(process.env.SMTP_PORT) === 465,
+    auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+  });
+
+  return transporter.sendMail({
+    from: process.env.EMAIL_FROM,
+    to,
+    subject: 'Reset your CertiTask password',
+    text: `Use this link to reset your CertiTask password. It expires in 15 minutes and can only be used once:\n\n${resetUrl}`,
+  });
 }

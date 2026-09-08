@@ -22,7 +22,7 @@ export async function GET(
         { certId: id }
       ]
     },
-    include: { company: true }
+    include: { company: { select: { name: true } } }
   });
 
   if (!certificate) {

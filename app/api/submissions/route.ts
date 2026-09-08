@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
+import { isHttpUrl, isString } from "@/lib/validation";
 
 export async function GET() {
   const session = await getSession();
@@ -56,8 +57,17 @@ export async function POST(req: Request) {
   try {
     const { projectId, teamName, submissionUrl, notes } = await req.json();
 
-    if (!projectId || !teamName || !submissionUrl) {
+    if (!isString(projectId, 100) || !isString(teamName, 200) || !isHttpUrl(submissionUrl) ||
+        (notes !== undefined && notes !== null && !isString(notes, 10000))) {
       return NextResponse.json({ error: "Project, team name, and URL are required" }, { status: 400 });
+    }
+
+    const project = await prisma.project.findFirst({
+      where: { id: projectId, status: "Active" },
+      select: { id: true },
+    });
+    if (!project) {
+      return NextResponse.json({ error: "Project is not available" }, { status: 404 });
     }
 
     const submission = await prisma.submission.create({

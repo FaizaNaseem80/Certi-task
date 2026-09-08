@@ -19,10 +19,7 @@ export async function GET(
       select: {
         id: true,
         name: true,
-        email: true,
         bio: true,
-        dateOfBirth: true,
-        gender: true,
         universityName: true,
         degreeProgram: true,
         currentSemester: true,
@@ -30,8 +27,6 @@ export async function GET(
         skillsArray: true,
         portfolioUrl: true,
         resumeUrl: true,
-        cnicNumber: true,
-        cnicVerified: true,
         location: true,
         createdAt: true,
         _count: {
