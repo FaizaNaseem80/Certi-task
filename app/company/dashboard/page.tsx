@@ -161,26 +161,18 @@ export default function CompanyDashboard() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [meR, profR, projR, appR, subR, certR] = await Promise.all([
-        fetch("/api/auth/me"),
-        fetch("/api/auth/profile"),
-        fetch("/api/projects"),
-        fetch("/api/applications"),
-        fetch("/api/submissions"),
-        fetch("/api/certificates"),
-      ]);
+      const res = await fetch("/api/dashboard");
+      const data = await res.json();
 
-      const meD   = await meR.json();
-      const profD = await profR.json();
-      const projD = await projR.json();
-      const appD  = await appR.json();
-      const subD  = await subR.json();
-      const certD = await certR.json();
+      if (!res.ok) {
+        if (res.status === 401) {
+          router.push("/auth/login");
+        }
+        return;
+      }
 
-      if (!meR.ok) { router.push("/auth/login"); return; }
-
-      const p = profD.user || {};
-      const meUser = meD.user || {};
+      const p = data.profile || {};
+      const meUser = data.user || {};
       const companyProf: CompanyProfile = {
         name: meUser.name || "Company Sponsor",
         email: meUser.email || "",
@@ -216,10 +208,10 @@ export default function CompanyDashboard() {
         logoUrl: companyProf.logoUrl || "",
       });
 
-      if (projD.projects) setProjects(projD.projects);
-      if (appD.applications) setApplications(appD.applications);
-      if (subD.submissions) setSubmissions(subD.submissions);
-      if (certD.certificates) setCertificates(certD.certificates);
+      if (data.projects) setProjects(data.projects);
+      if (data.applications) setApplications(data.applications);
+      if (data.submissions) setSubmissions(data.submissions);
+      if (data.certificates) setCertificates(data.certificates);
     } catch (e) {
       console.error("Company dashboard fetch error:", e);
     } finally {
