@@ -4,6 +4,19 @@ import { Redis } from "@upstash/redis";
 const buckets = new Map<string, { count: number; resetAt: number }>();
 const distributedLimiters = new Map<string, Ratelimit>();
 
+export function getClientRateLimitKey(req: Request, scope: string, identifier?: string): string {
+  const forwarded = req.headers.get("x-forwarded-for");
+  const clientIp =
+    forwarded?.split(",")[0]?.trim() ||
+    req.headers.get("x-real-ip")?.trim() ||
+    req.headers.get("cf-connecting-ip")?.trim() ||
+    req.headers.get("true-client-ip")?.trim() ||
+    "unknown";
+
+  const normalizedIdentifier = identifier?.toLowerCase().trim();
+  return normalizedIdentifier ? `${scope}:${clientIp}:${normalizedIdentifier}` : `${scope}:${clientIp}`;
+}
+
 function localRateLimited(key: string, limit: number, windowMs: number): boolean {
   const now = Date.now();
   const current = buckets.get(key);
@@ -22,7 +35,7 @@ export async function isRateLimited(key: string, limit: number, windowMs: number
   const token = process.env.UPSTASH_REDIS_REST_TOKEN;
 
   if (!url || !token) {
-    return process.env.NODE_ENV === "production" ? true : localRateLimited(key, limit, windowMs);
+    return localRateLimited(key, limit, windowMs);
   }
 
   const limiterKey = `${limit}:${windowMs}`;
@@ -40,6 +53,6 @@ export async function isRateLimited(key: string, limit: number, windowMs: number
     const result = await limiter.limit(key);
     return !result.success;
   } catch {
-    return process.env.NODE_ENV === "production" ? true : localRateLimited(key, limit, windowMs);
+    return localRateLimited(key, limit, windowMs);
   }
 }
