@@ -51,11 +51,102 @@
   --font-mono: var(--font-geist-mono);
 }
 
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
 body {
   background-color: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans);
   min-height: 100vh;
+  overflow-x: hidden;
+}
+
+img, svg, video, canvas, iframe {
+  max-width: 100%;
+  display: block;
+}
+
+@media (max-width: 768px) {
+  .mobile-dashboard-shell {
+    min-width: 0;
+  }
+
+  .mobile-dashboard-header {
+    padding: 0 12px !important;
+    height: auto !important;
+  }
+
+  .mobile-dashboard-header-inner {
+    flex-wrap: wrap !important;
+    gap: 10px !important;
+    height: auto !important;
+    padding: 12px 0 !important;
+  }
+
+  .mobile-dashboard-header-actions {
+    width: 100% !important;
+    justify-content: flex-start !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+  }
+
+  .mobile-dashboard-body {
+    grid-template-columns: 1fr !important;
+    padding: 16px 12px !important;
+    gap: 16px !important;
+  }
+
+  .mobile-dashboard-sidebar,
+  .mobile-dashboard-main {
+    min-width: 0 !important;
+    width: 100% !important;
+  }
+
+  .mobile-dashboard-sidebar {
+    position: static !important;
+  }
+
+  .mobile-dashboard-main > div {
+    padding: 18px 14px !important;
+  }
+
+  .mobile-dashboard-stats-grid,
+  .mobile-dashboard-two-col,
+  .mobile-dashboard-form-grid,
+  .mobile-dashboard-project-grid,
+  .mobile-dashboard-review-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .mobile-dashboard-stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .mobile-dashboard-header-compact {
+    display: none !important;
+  }
+
+  .mobile-dashboard-actions-wrap {
+    flex-wrap: wrap !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .mobile-dashboard-stats-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .mobile-dashboard-header-actions button,
+  .mobile-dashboard-header-actions a {
+    flex: 1 1 100% !important;
+    justify-content: center !important;
+  }
 }
 
 /* ─── Keyframe Animations ────────────────────────────────────── */
