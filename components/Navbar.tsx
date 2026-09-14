@@ -63,7 +63,7 @@ export const Navbar = () => {
           </div>
 
           {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center space-x-1 lg:space-x-4">
+          <div className="hidden lg:flex items-center space-x-1 lg:space-x-4">
             {navLinks.map((link) => {
               const active = isActive(link.href);
               return (
@@ -86,14 +86,14 @@ export const Navbar = () => {
           </div>
 
           {/* Get Started Button */}
-          <div className="hidden md:flex items-center space-x-3">
+          <div className="hidden lg:flex items-center space-x-3">
             <Button href="/auth/signup" variant="gold">
               Get Started
             </Button>
           </div>
 
           {/* Mobile menu button */}
-          <div className="flex items-center md:hidden">
+          <div className="flex items-center lg:hidden">
             <button
               onClick={() => setIsOpen(!isOpen)}
               type="button"
@@ -140,7 +140,7 @@ export const Navbar = () => {
 
       {/* Mobile Menu */}
       <div
-        className={`md:hidden transition-all duration-300 ease-in-out ${
+        className={`lg:hidden transition-all duration-300 ease-in-out ${
           isOpen
             ? "max-h-screen opacity-100 visible"
             : "max-h-0 opacity-0 invisible overflow-hidden"

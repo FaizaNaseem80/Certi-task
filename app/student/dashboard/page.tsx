@@ -312,11 +312,11 @@ export default function StudentDashboard() {
 
   /* ════════════════ Render ════════════════ */
   return (
-    <div style={{ minHeight: "100vh", background: "var(--paper)", fontFamily: "var(--font-geist-sans)" }}>
+    <div className="dashboard-responsive dashboard-student" style={{ minHeight: "100vh", background: "var(--paper)", fontFamily: "var(--font-geist-sans)" }}>
 
       {/* ── TOP HEADER ── */}
       <header style={{ background: "linear-gradient(135deg, #0A1D33 0%, #0F2A4A 60%, #1a3a5c 100%)", color: "#fff", padding: "0 24px", boxShadow: "0 2px 12px rgba(10,29,51,0.25)" }}>
-        <div style={{ maxWidth: 1280, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-between", height: 64 }}>
+        <div className="dashboard-responsive-header" style={{ maxWidth: 1280, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-between", height: 64 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <Link href="/" style={{ textDecoration: "none" }}>
               <span style={{ fontSize: 20, fontWeight: 800, color: "#fff", letterSpacing: -0.5 }}>
@@ -327,7 +327,7 @@ export default function StudentDashboard() {
             <span style={{ fontSize: 13, color: "rgba(255,255,255,0.55)", fontWeight: 500 }}>Student Portal</span>
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div className="dashboard-responsive-actions" style={{ display: "flex", alignItems: "center", gap: 10 }}>
             {/* Avatar */}
             <div style={{ width: 36, height: 36, borderRadius: "50%", background: "var(--gold)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, fontWeight: 800, color: "var(--navy)", flexShrink: 0 }}>
               {userName.charAt(0).toUpperCase()}
@@ -353,10 +353,10 @@ export default function StudentDashboard() {
       </header>
 
       {/* ── BODY LAYOUT ── */}
-      <div style={{ maxWidth: 1280, margin: "0 auto", padding: "28px 20px", display: "grid", gridTemplateColumns: "220px 1fr", gap: 24 }}>
+      <div className="dashboard-responsive-layout" style={{ maxWidth: 1280, margin: "0 auto", padding: "28px 20px", display: "grid", gridTemplateColumns: "220px 1fr", gap: 24 }}>
 
         {/* ── SIDEBAR ── */}
-        <aside style={{ position: "sticky", top: 24, height: "fit-content" }}>
+        <aside className="dashboard-responsive-sidebar" style={{ position: "sticky", top: 24, height: "fit-content" }}>
           <nav style={{ background: "#fff", border: "1px solid var(--border)", borderRadius: 16, overflow: "hidden", boxShadow: "var(--shadow-sm)" }}>
             {/* Profile mini card */}
             <div style={{ padding: "20px 16px", borderBottom: "1px solid var(--border)", background: "linear-gradient(135deg, #F8FAFC 0%, #EDF2F7 100%)" }}>
@@ -433,7 +433,7 @@ export default function StudentDashboard() {
         </aside>
 
         {/* ── MAIN PANEL ── */}
-        <main style={{ minWidth: 0 }}>
+        <main className="dashboard-responsive-content" style={{ minWidth: 0 }}>
           <div style={{ background: "#fff", border: "1px solid var(--border)", borderRadius: 16, padding: 28, boxShadow: "var(--shadow-sm)", minHeight: 400 }}>
 
             {/* ══════════ TAB: OVERVIEW ══════════ */}

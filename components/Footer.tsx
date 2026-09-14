@@ -70,11 +70,11 @@ export const Footer = () => {
           <div>
             <h3 className="font-sans font-bold text-lg text-gold mb-4 font-sans">Contact</h3>
             <ul className="space-y-3 text-sm text-paper/75">
-              <li className="flex items-center gap-2">
+              <li className="flex items-center gap-2 min-w-0">
                 <svg className="h-4 w-4 text-gold shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
                 </svg>
-                <span>famebytestudio@gmail.com</span>
+                <span className="min-w-0 break-words">famebytestudio@gmail.com</span>
               </li>
               <li className="flex items-center gap-2">
                 <svg className="h-4 w-4 text-gold shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
