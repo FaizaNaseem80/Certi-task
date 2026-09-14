@@ -2,16 +2,16 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { hashPassword, createToken, setAuthCookie } from "@/lib/auth";
 import { isEmail, isString } from "@/lib/validation";
-import { isRateLimited } from "@/lib/rate-limit";
+import { getClientRateLimitKey, isRateLimited } from "@/lib/rate-limit";
 
 export async function POST(req: Request) {
   try {
-    const clientKey = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
-    if (await isRateLimited(`signup:${clientKey}`, 5, 60 * 60 * 1000)) {
+    const { email, password, fullName, role } = await req.json();
+    const clientKey = getClientRateLimitKey(req, "signup", email);
+
+    if (await isRateLimited(clientKey, 5, 60 * 60 * 1000)) {
       return NextResponse.json({ error: "Too many signup attempts. Try again later." }, { status: 429 });
     }
-
-    const { email, password, fullName, role } = await req.json();
 
     if (!isEmail(email) || !isString(password, 128) || password.length < 8 || !isString(fullName, 120)) {
       return NextResponse.json(

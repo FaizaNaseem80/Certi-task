@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { hashPassword } from "@/lib/auth";
 import { isRateLimited } from "@/lib/rate-limit";
@@ -23,7 +24,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Invalid reset request." }, { status: 400 });
     }
 
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const resetToken = await tx.passwordResetToken.findFirst({
         where: {
           tokenHash: hashToken(token),

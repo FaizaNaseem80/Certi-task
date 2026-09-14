@@ -152,22 +152,20 @@ export async function PATCH(
       }
 
       if (status === "StudentConfirmed") {
-        // If company already approved, issue certificate and set final status to Approved
+        // Student confirmation is only a handoff step; certificate issuance must remain company-only.
         if (submission.status === "CompanyApproved") {
-          const cert = await createCertificateIfMissing(submission, submission.project.companyId);
           const updated = await prisma.submission.update({
             where: { id },
             data: { status: "Approved" },
           });
-          return NextResponse.json({ success: true, submission: updated, certificate: cert });
-        } else {
-          // Mark as student-confirmed and wait for company confirmation
-          const updated = await prisma.submission.update({
-            where: { id },
-            data: { status: "StudentConfirmed" },
-          });
           return NextResponse.json({ success: true, submission: updated });
         }
+
+        const updated = await prisma.submission.update({
+          where: { id },
+          data: { status: "StudentConfirmed" },
+        });
+        return NextResponse.json({ success: true, submission: updated });
       }
 
       // Student cannot perform other status changes
