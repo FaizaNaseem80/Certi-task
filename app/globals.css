@@ -72,6 +72,12 @@ img, svg, video, canvas, iframe {
   display: block;
 }
 
+.mobile-dashboard-menu-button,
+.mobile-dashboard-close-button,
+.mobile-dashboard-backdrop {
+  display: none;
+}
+
 @media (max-width: 768px) {
   .mobile-dashboard-shell {
     min-width: 0;
@@ -90,10 +96,36 @@ img, svg, video, canvas, iframe {
   }
 
   .mobile-dashboard-header-actions {
-    width: 100% !important;
-    justify-content: flex-start !important;
-    flex-wrap: wrap !important;
-    gap: 8px !important;
+    display: none !important;
+  }
+
+  .mobile-dashboard-menu-button,
+  .mobile-dashboard-close-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    min-width: 44px;
+    height: 44px;
+    flex: 0 0 44px;
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff;
+    font-size: 25px;
+    line-height: 1;
+    cursor: pointer;
+  }
+
+  .mobile-dashboard-menu-button:focus-visible,
+  .mobile-dashboard-close-button:focus-visible,
+  .mobile-dashboard-sidebar button:focus-visible {
+    outline: 3px solid var(--gold);
+    outline-offset: 2px;
+  }
+
+  .mobile-dashboard-close-button {
+    display: none;
   }
 
   .mobile-dashboard-body {
@@ -109,7 +141,53 @@ img, svg, video, canvas, iframe {
   }
 
   .mobile-dashboard-sidebar {
-    position: static !important;
+    position: fixed !important;
+    inset: 0 auto 0 0;
+    z-index: 70;
+    width: min(86vw, 320px) !important;
+    max-width: 100%;
+    padding: 16px 12px;
+    background: var(--paper);
+    box-shadow: 12px 0 32px rgba(10, 29, 51, 0.2);
+    transform: translateX(-105%);
+    transition: transform 0.25s ease;
+    overflow-y: auto;
+  }
+
+  .mobile-dashboard-sidebar.is-open {
+    transform: translateX(0);
+  }
+
+  .mobile-dashboard-sidebar nav {
+    border-radius: 12px !important;
+  }
+
+  .mobile-dashboard-sidebar nav button {
+    min-height: 44px;
+  }
+
+  .mobile-dashboard-close-button {
+    display: inline-flex;
+    margin: 0 0 12px auto;
+    border-color: var(--border);
+    background: var(--surface);
+    color: var(--navy);
+  }
+
+  .mobile-dashboard-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    background: rgba(10, 29, 51, 0.42);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease;
+  }
+
+  .mobile-dashboard-backdrop.is-open {
+    opacity: 1;
+    pointer-events: auto;
   }
 
   .mobile-dashboard-main > div {
@@ -1098,10 +1176,6 @@ img, svg, video, canvas, iframe {
     gap: 16px !important;
   }
 
-  .dashboard-responsive-sidebar {
-    position: static !important;
-  }
-
   .dashboard-responsive-content {
     min-width: 0;
     width: 100%;
@@ -1109,6 +1183,12 @@ img, svg, video, canvas, iframe {
 
   .dashboard-responsive-content [style*="grid-template-columns"] {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  .dashboard-responsive-sidebar {
+    position: static !important;
   }
 }
 
@@ -1156,6 +1236,53 @@ img, svg, video, canvas, iframe {
   .dashboard-responsive-content textarea,
   .dashboard-responsive-content select {
     max-width: 100%;
+  }
+}
+
+/* The mobile drawer must not remain in document flow. This rule comes after
+   the tablet layout override so the closed drawer cannot push the dashboard
+   content below the viewport. */
+@media (max-width: 767px) {
+  .mobile-dashboard-body {
+    display: block !important;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .mobile-dashboard-sidebar {
+    position: fixed !important;
+    top: 0 !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: auto !important;
+    width: min(85vw, 320px) !important;
+    height: 100dvh !important;
+    max-height: 100dvh;
+    margin: 0 !important;
+    padding: 16px 12px !important;
+    transform: translateX(-105%);
+    visibility: hidden;
+    overflow-y: auto;
+    z-index: 70;
+  }
+
+  .mobile-dashboard-sidebar.is-open {
+    transform: translateX(0);
+    visibility: visible;
+  }
+
+  .mobile-dashboard-main {
+    display: block !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    position: relative;
+    z-index: 1;
+  }
+
+  .mobile-dashboard-main > div {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
   }
 }
 

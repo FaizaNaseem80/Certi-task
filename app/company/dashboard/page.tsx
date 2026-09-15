@@ -131,6 +131,7 @@ export default function CompanyDashboard() {
 
   /* UI states */
   const [loading, setLoading]             = useState(true);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [selectedSubId, setSelectedSubId] = useState<string | null>(null);
   const [feedbackMsg, setFeedbackMsg]     = useState("");
   const [showRejectModal, setShowRejectModal] = useState(false);
@@ -226,6 +227,19 @@ export default function CompanyDashboard() {
 
     return () => clearTimeout(timeout);
   }, [fetchData]);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMobileNavOpen(false);
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    document.body.style.overflow = mobileNavOpen ? "hidden" : "";
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = "";
+    };
+  }, [mobileNavOpen]);
 
   /* ════════════════ Handlers ════════════════ */
   async function handleSignOut() {
@@ -363,7 +377,10 @@ export default function CompanyDashboard() {
       {/* ── TOP HEADER ── */}
       <header className="mobile-dashboard-header" style={{ background: "linear-gradient(135deg, #0A1D33 0%, #0F2A4A 60%, #1a3a5c 100%)", color: "#fff", padding: "0 24px", boxShadow: "0 2px 12px rgba(10,29,51,0.25)" }}>
         <div className="dashboard-responsive-header mobile-dashboard-header-inner" style={{ maxWidth: 1280, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-between", height: 64 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div className="mobile-dashboard-brand" style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <button className="mobile-dashboard-menu-button" type="button" onClick={() => setMobileNavOpen(true)} aria-label="Open dashboard navigation" aria-expanded={mobileNavOpen} aria-controls="company-dashboard-navigation">
+              <span aria-hidden="true">☰</span>
+            </button>
             <Link href="/" style={{ textDecoration: "none" }}>
               <span style={{ fontSize: 20, fontWeight: 800, color: "#fff", letterSpacing: -0.5 }}>
                 Certi<span style={{ color: "var(--gold)" }}>Task</span>
@@ -403,7 +420,11 @@ export default function CompanyDashboard() {
   <div className="dashboard-responsive-layout mobile-dashboard-body" style={{ maxWidth: 1280, margin: "0 auto", padding: "28px 20px", display: "grid", gridTemplateColumns: "230px 1fr", gap: 24 }}>
 
         {/* ── SIDEBAR ── */}
-        <aside className="dashboard-responsive-sidebar mobile-dashboard-sidebar" style={{ position: "sticky", top: 24, height: "fit-content" }}>
+        <div className={`mobile-dashboard-backdrop${mobileNavOpen ? " is-open" : ""}`} onClick={() => setMobileNavOpen(false)} aria-hidden="true" />
+        <aside id="company-dashboard-navigation" aria-hidden={!mobileNavOpen} className={`dashboard-responsive-sidebar mobile-dashboard-sidebar${mobileNavOpen ? " is-open" : ""}`} style={{ position: "sticky", top: 24, height: "fit-content" }}>
+          <button className="mobile-dashboard-close-button" type="button" onClick={() => setMobileNavOpen(false)} aria-label="Close dashboard navigation">
+            <span aria-hidden="true">×</span>
+          </button>
           <nav style={{ background: "#fff", border: "1px solid var(--border)", borderRadius: 16, overflow: "hidden", boxShadow: "var(--shadow-sm)" }}>
             {/* Company mini card */}
             <div style={{ padding: "20px 16px", borderBottom: "1px solid var(--border)", background: "linear-gradient(135deg, #F8FAFC 0%, #EDF2F7 100%)" }}>
@@ -428,7 +449,7 @@ export default function CompanyDashboard() {
                 return (
                   <button
                     key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
+                    onClick={() => { setActiveTab(tab.id); setMobileNavOpen(false); }}
                     style={{
                       width: "100%", display: "flex", alignItems: "center", gap: 10,
                       padding: "10px 16px", border: "none", borderRadius: 0,
