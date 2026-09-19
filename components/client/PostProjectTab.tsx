@@ -5,7 +5,7 @@ import { Btn, Field, Notice, SectionHeader, inputStyle, selectStyle, textareaSty
 import { api } from "@/components/dashboard/useDashboardData";
 import { PROJECT_CATEGORIES, PROJECT_CATEGORY_LABEL, TEAM_CAP_DEFAULT, TEAM_CAP_MAX, TEAM_CAP_MIN, type ProjectCategory } from "@/lib/enums";
 
-const EMPTY = { title: "", description: "", category: "" as ProjectCategory | "", requiredSkills: "", deliverables: "", deadline: "", teamCap: TEAM_CAP_DEFAULT };
+const EMPTY = { title: "", description: "", category: "" as ProjectCategory | "", requiredSkills: "", deliverables: "", deadline: "", teamCap: TEAM_CAP_DEFAULT, draft: false };
 
 export function PostProjectTab({ clientName, onCreated, verified }: { clientName: string; onCreated: () => void; verified: boolean }) {
   const [form, setForm] = useState(EMPTY);
@@ -61,7 +61,13 @@ export function PostProjectTab({ clientName, onCreated, verified }: { clientName
               <input id="proj-deadline" type="date" min={minDate} value={form.deadline} onChange={e => setForm({ ...form, deadline: e.target.value })} style={{ ...inputStyle(), maxWidth: 240 }} required />
             </Field>
           </div>
-          <Btn type="submit" disabled={busy} style={{ width: "100%", padding: "14px 0", fontSize: 15 }}>{busy ? "Saving…" : verified ? "Publish project" : "Save as draft"}</Btn>
+          {verified && (
+            <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--ink-muted)", marginBottom: 12, cursor: "pointer" }}>
+              <input id="proj-draft" type="checkbox" checked={form.draft} onChange={e => setForm({ ...form, draft: e.target.checked })} />
+              Save as a draft — don&apos;t publish yet (you can publish from My Projects)
+            </label>
+          )}
+          <Btn type="submit" disabled={busy} style={{ width: "100%", padding: "14px 0", fontSize: 15 }}>{busy ? "Saving…" : verified && !form.draft ? "Publish project" : "Save as draft"}</Btn>
           {error && <Notice kind="error">{error}</Notice>}
         </form>
 

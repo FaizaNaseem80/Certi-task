@@ -7,7 +7,13 @@ export type NotificationType =
   | "application.status"
   | "submission.reviewed"
   | "certificate.issued"
-  | "certificate.status";
+  | "certificate.status"
+  | "team.invite"
+  | "team.accepted"
+  | "team.declined"
+  | "team.removed"
+  | "team.left"
+  | "deadline.reminder";
 
 /** In-app notification. Never throws — a failed notification must not break the action. */
 export async function notify(

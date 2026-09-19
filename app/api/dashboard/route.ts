@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { applicationInclude, certificateInclude, profileSelect, projectListInclude, submissionInclude } from "@/lib/queries";
+import { teamInclude } from "@/lib/teams";
 
 /** GET /api/dashboard — everything a client or talent dashboard needs in one call. */
 export async function GET() {
@@ -15,7 +16,7 @@ export async function GET() {
     const isClient = auth.role === "CLIENT";
     const memberOf = { team: { members: { some: { userId: auth.userId, status: "ACCEPTED" as const } } } };
 
-    const [projects, applications, submissions, certificates, certificateHolds] = await Promise.all([
+    const [projects, applications, submissions, certificates, certificateHolds, teams] = await Promise.all([
       prisma.project.findMany({
         where: isClient ? { clientId: auth.userId } : { status: "ACTIVE", deadline: { gte: new Date() } },
         include: projectListInclude,
@@ -43,6 +44,13 @@ export async function GET() {
             select: { id: true, createdAt: true, project: { select: { id: true, title: true, client: { select: { name: true } } } } },
             orderBy: { createdAt: "desc" },
           }),
+      isClient
+        ? Promise.resolve([])
+        : prisma.team.findMany({
+            where: { members: { some: { userId: auth.userId, status: { in: ["ACCEPTED", "INVITED"] } } } },
+            include: teamInclude,
+            orderBy: { createdAt: "desc" },
+          }),
     ]);
 
     return NextResponse.json({
@@ -53,6 +61,7 @@ export async function GET() {
       submissions,
       certificates,
       certificateHolds,
+      teams,
     });
   } catch (error) {
     console.error("Dashboard load error:", error);

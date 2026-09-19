@@ -51,9 +51,20 @@ export async function PATCH(req: Request, { params }: Params) {
       }
     }
 
+    // Withdrawal removes the application so the team's roster unfreezes; a solo
+    // team disappears with it. The audit log keeps the record.
+    if (status === "WITHDRAWN") {
+      const team = await prisma.team.findUnique({ where: { id: application.teamId }, include: { members: { where: { status: "ACCEPTED" }, select: { id: true } }, invites: { select: { id: true } } } });
+      const solo = team && team.members.length <= 1 && team.invites.length === 0;
+      await audit(auth, "application.withdrawn", "application", id, { projectId: application.projectId, teamId: application.teamId, teamDeleted: !!solo });
+      if (solo) await prisma.team.delete({ where: { id: application.teamId } });
+      else await prisma.application.delete({ where: { id } });
+      return NextResponse.json({ success: true, withdrawn: true });
+    }
+
     const updated = await prisma.application.update({
       where: { id },
-      data: { status, reviewedAt: auth.role === "CLIENT" ? new Date() : undefined },
+      data: { status, reviewedAt: new Date() },
       include: applicationInclude,
     });
     await audit(auth, "application.status_changed", "application", id, { from: application.status, to: status });

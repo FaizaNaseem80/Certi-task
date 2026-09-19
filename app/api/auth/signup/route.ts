@@ -6,6 +6,7 @@ import { getClientRateLimitKey, isRateLimited } from "@/lib/rate-limit";
 import { CLIENT_TYPES, isOneOf } from "@/lib/enums";
 import { audit } from "@/lib/audit";
 import { sendEmailVerification } from "@/lib/email-verification";
+import { attachPendingInvites } from "@/lib/teams";
 
 export async function POST(req: Request) {
   try {
@@ -58,6 +59,7 @@ export async function POST(req: Request) {
 
     await audit({ userId: user.id, role: user.role }, "user.signup", "user", user.id, { role: user.role, clientType: dbClientType });
     void sendEmailVerification(user); // never blocks signup
+    if (user.role === "TALENT") void attachPendingInvites(user).catch((e) => console.error("attach invites failed", e));
 
     const token = await createToken({
       userId: user.id,

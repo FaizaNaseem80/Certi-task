@@ -168,6 +168,13 @@ async function main() {
       deadline: daysFromNow(10), teamCap: 1, status: "ACTIVE",
     },
     {
+      client: acme, title: "Mobile app onboarding redesign", category: "DESIGN_AND_UX",
+      description: "Redesign the first-run experience of our client's fitness app: 5 screens, a prototype, and a short rationale doc. Ideal for a designer + a researcher + a front-end dev.",
+      requiredSkills: ["Figma", "UX research", "Prototyping", "React Native"],
+      deliverables: "Figma file with prototype, 2-page rationale, and a 3-minute walkthrough video.",
+      deadline: daysFromNow(18), teamCap: 3, status: "ACTIVE",
+    },
+    {
       client: acme, title: "Clean and document a customer survey dataset", category: "DATA_AND_AI",
       description: "Completed demo project: a 4,000-row survey export needed de-duplication, normalisation and a data dictionary.",
       requiredSkills: ["Python", "Pandas", "Data cleaning"],
@@ -177,18 +184,19 @@ async function main() {
   ];
 
   // Drop accounts and projects left behind by automated smoke tests.
-  await prisma.user.deleteMany({ where: { email: { startsWith: "smoke2+" } } });
-  const smoke = await prisma.project.findMany({ where: { title: { startsWith: "Smoke" } }, select: { id: true } });
+  await prisma.user.deleteMany({ where: { OR: [{ email: { startsWith: "smoke2+" } }, { email: { startsWith: "newbie+" } }, { email: { startsWith: "uitest.org." } }] } });
+  const smoke = await prisma.project.findMany({ where: { OR: [{ title: { startsWith: "Smoke" } }, { title: { startsWith: "UI test" } }] }, select: { id: true } });
   for (const sp of smoke) { await prisma.certificate.deleteMany({ where: { projectId: sp.id } }); await prisma.project.delete({ where: { id: sp.id } }); }
 
   const projects = {};
   for (const def of projectDefs) {
     const { client, ...data } = def;
-    const existing = await prisma.project.findFirst({ where: { clientId: client.id, title: def.title } });
-    if (existing) {
+    // Match by prefix so a title edited during testing ("… (v2)") is still reset.
+    const existing = await prisma.project.findMany({ where: { clientId: client.id, title: { startsWith: def.title } }, select: { id: true } });
+    for (const ex of existing) {
       // Certificates restrict project deletion on purpose; demo ones are safe to drop.
-      await prisma.certificate.deleteMany({ where: { projectId: existing.id } });
-      await prisma.project.delete({ where: { id: existing.id } }); // cascades teams/apps/subs/holds
+      await prisma.certificate.deleteMany({ where: { projectId: ex.id } });
+      await prisma.project.delete({ where: { id: ex.id } }); // cascades teams/apps/subs/holds
     }
     projects[def.title] = await prisma.project.create({
       data: { ...data, clientId: client.id, publishedAt: new Date() },
@@ -230,6 +238,23 @@ async function main() {
   await prisma.application.create({
     data: { projectId: brief.id, teamId: sanaTeam.id, status: "SHORTLISTED", reviewedAt: new Date(), pitch: "I wrote a similar brief for an edtech startup last year. Happy to share a redacted sample." },
   });
+
+  /* ── Flow 3b: a team in progress on the onboarding redesign (Sana leads, Hamza joined, Bilal invited) ── */
+  const [, , , hamza] = talents;
+  const redesign = projects["Mobile app onboarding redesign"];
+  await prisma.team.create({
+    data: {
+      name: "Pixel Pushers", projectId: redesign.id, leadId: sana.id,
+      members: {
+        create: [
+          { userId: sana.id, role: "LEAD", status: "ACCEPTED", respondedAt: new Date() },
+          { userId: hamza.id, role: "MEMBER", status: "ACCEPTED", invitedById: sana.id, respondedAt: new Date() },
+          { userId: bilal.id, role: "MEMBER", status: "INVITED", invitedById: sana.id, expiresAt: daysFromNow(7) },
+        ],
+      },
+    },
+  });
+  await prisma.notification.create({ data: { userId: bilal.id, type: "team.invite", title: "Team invitation: Pixel Pushers", body: `Sana Malik invited you to join "Pixel Pushers" for "${redesign.title}".`, link: "/talent/dashboard?tab=teams" } });
 
   /* ── Flow 4: completed project with an approved submission and a certificate for Ayesha ── */
   const survey = projects["Clean and document a customer survey dataset"];
@@ -273,8 +298,8 @@ Done. Sign in with password "${PASSWORD}":
   Client (organization, verified)   projects@acmestudio.pk
   Client (individual, unverified)   ali.raza@example.com
   Talent (verified, 1 certificate)  ayesha.khan@example.com
-  Talent (verification pending)     bilal.ahmed@example.com
-  Talent                            sana.malik@example.com
+  Talent (verification pending, team invite waiting)  bilal.ahmed@example.com
+  Talent (leads team "Pixel Pushers")                 sana.malik@example.com
   Talent                            hamza.iqbal@example.com
 
   Demo certificate to verify at /verify:  ${certId}

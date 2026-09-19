@@ -7,10 +7,12 @@ import { api } from "@/components/dashboard/useDashboardData";
 import { PROJECT_CATEGORY_LABEL } from "@/lib/enums";
 import type { ApplicationDto, ProjectDto } from "@/lib/types";
 import type { ClientTab } from "@/app/client/dashboard/page";
+import { EditProjectModal } from "@/components/client/EditProjectModal";
 
 export function ProjectsTab({ projects, applications, goTo, onChanged, verified }: { projects: ProjectDto[]; applications: ApplicationDto[]; goTo: (t: ClientTab) => void; onChanged: () => void; verified: boolean }) {
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [editing, setEditing] = useState<ProjectDto | null>(null);
 
   async function setStatus(id: string, status: "ACTIVE" | "PAUSED" | "CLOSED") {
     if (status === "CLOSED" && !confirm("Close this project? Talent will no longer be able to apply or submit.")) return;
@@ -25,6 +27,7 @@ export function ProjectsTab({ projects, applications, goTo, onChanged, verified 
     <div>
       <SectionHeader icon="🚀" title="My projects" subtitle="Pause, resume or close listings and track who has applied." action={<Btn onClick={() => goTo("post-project")}>+ Post a project</Btn>} />
       {error && <Notice kind="error">{error}</Notice>}
+      {editing && <EditProjectModal project={editing} onClose={() => setEditing(null)} onSaved={onChanged} />}
 
       {projects.length === 0 ? (
         <EmptyState icon="📭" title="No projects yet" hint="Post your first project and talent can start applying." action={<Btn variant="gold" onClick={() => goTo("post-project")}>+ Post a project</Btn>} />
@@ -48,6 +51,7 @@ export function ProjectsTab({ projects, applications, goTo, onChanged, verified 
                     {p.status === "DRAFT" && (verified
                       ? <Btn variant="gold" small disabled={busy} onClick={() => setStatus(p.id, "ACTIVE")}>Publish</Btn>
                       : <button onClick={() => goTo("verification")} style={{ fontSize: 12, fontWeight: 700, color: "#97640E", background: "rgba(236,201,75,0.18)", border: "none", borderRadius: 8, padding: "6px 12px", cursor: "pointer" }}>Verify to publish</button>)}
+                    {(p.status === "ACTIVE" || p.status === "PAUSED" || p.status === "DRAFT") && <Btn variant="ghost" small disabled={busy} onClick={() => setEditing(p)}>Edit</Btn>}
                     {p.status === "ACTIVE" && <Btn variant="ghost" small disabled={busy} onClick={() => setStatus(p.id, "PAUSED")}>Pause</Btn>}
                     {p.status === "PAUSED" && <Btn variant="ghost" small disabled={busy} onClick={() => setStatus(p.id, "ACTIVE")}>Resume</Btn>}
                     {(p.status === "ACTIVE" || p.status === "PAUSED") && <Btn variant="outline" small disabled={busy} onClick={() => setStatus(p.id, "CLOSED")}>Close</Btn>}
@@ -55,7 +59,7 @@ export function ProjectsTab({ projects, applications, goTo, onChanged, verified 
                 </div>
                 <p style={{ fontSize: 14, color: "var(--ink-muted)", margin: "0 0 14px", lineHeight: 1.6 }}>{p.description}</p>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, borderTop: "1px solid var(--border)", paddingTop: 12, fontSize: 12, color: "var(--ink-subtle)", flexWrap: "wrap" }}>
-                  <span>📅 Deadline <strong>{formatDate(p.deadline)}</strong> · Team size <strong>{p.teamCap}</strong> · Posted {formatDate(p.createdAt)}</span>
+                  <span>📅 Deadline <strong>{formatDate(p.deadline)}</strong>{p.status === "CLOSED" && p.closedAt ? <> · closed {formatDate(p.closedAt)}</> : null} · {p.teamCap > 1 ? <>Teams up to <strong>{p.teamCap}</strong></> : "Individuals only"} · Posted {formatDate(p.createdAt)}</span>
                   <button onClick={() => goTo("applications")} style={{ background: "none", border: "none", color: "var(--navy)", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
                     Applications ({apps.length}) →
                   </button>

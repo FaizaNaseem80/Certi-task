@@ -16,6 +16,9 @@ function daysLeft(iso: string) {
 export default function ProjectsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [category, setCategory] = useState<"All" | ProjectCategory>("All");
+  const [verifiedOnly, setVerifiedOnly] = useState(false);
+  const [teamsOnly, setTeamsOnly] = useState(false);
+  const [sort, setSort] = useState<"newest" | "deadline">("newest");
   const [showAll, setShowAll] = useState(false);
   const [projects, setProjects] = useState<ProjectDto[]>([]);
   const [loading, setLoading] = useState(true);
@@ -39,12 +42,15 @@ export default function ProjectsPage() {
 
   const filtered = useMemo(() => {
     const needle = searchQuery.trim().toLowerCase();
-    return projects.filter(p =>
+    const list = projects.filter(p =>
       (category === "All" || p.category === category) &&
+      (!verifiedOnly || p.client?.verificationStatus === "VERIFIED") &&
+      (!teamsOnly || p.teamCap > 1) &&
       (!needle || p.title.toLowerCase().includes(needle) || p.description.toLowerCase().includes(needle) ||
         (p.client?.name ?? "").toLowerCase().includes(needle) || p.requiredSkills.some(s => s.toLowerCase().includes(needle)))
     );
-  }, [projects, searchQuery, category]);
+    return sort === "deadline" ? [...list].sort((a, b) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime()) : list;
+  }, [projects, searchQuery, category, verifiedOnly, teamsOnly, sort]);
   const displayed = showAll ? filtered : filtered.slice(0, 6);
 
   return (
@@ -73,9 +79,18 @@ export default function ProjectsPage() {
                 <input id="project-search" type="text" placeholder="Search by title, skill or client…" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
                   className="block w-full pl-10 pr-4 py-3 bg-paper border border-navy/15 rounded-lg text-ink font-sans focus:outline-hidden focus:ring-2 focus:ring-gold/50 focus:border-gold transition-colors text-sm" />
               </div>
-              <Button variant="primary" onClick={() => { setSearchQuery(""); setCategory("All"); setShowAll(false); }} className="w-full">Reset</Button>
+              <Button variant="primary" onClick={() => { setSearchQuery(""); setCategory("All"); setVerifiedOnly(false); setTeamsOnly(false); setSort("newest"); setShowAll(false); }} className="w-full">Reset</Button>
             </div>
-            <div className="flex flex-wrap gap-2 pt-2 border-t border-navy/5">
+            <div className="flex flex-wrap items-center gap-4 pt-2 border-t border-navy/5 text-xs font-semibold text-navy">
+              <label className="flex items-center gap-2 cursor-pointer"><input id="f-verified" type="checkbox" checked={verifiedOnly} onChange={e => setVerifiedOnly(e.target.checked)} /> Verified clients only</label>
+              <label className="flex items-center gap-2 cursor-pointer"><input id="f-teams" type="checkbox" checked={teamsOnly} onChange={e => setTeamsOnly(e.target.checked)} /> Team projects only</label>
+              <label className="flex items-center gap-2">Sort
+                <select id="f-sort" value={sort} onChange={e => setSort(e.target.value as "newest" | "deadline")} className="border border-navy/15 rounded px-2 py-1 bg-paper">
+                  <option value="newest">Newest first</option><option value="deadline">Deadline soonest</option>
+                </select>
+              </label>
+            </div>
+            <div className="flex flex-wrap gap-2">
               {(["All", ...PROJECT_CATEGORIES] as const).map((c) => (
                 <button key={c} onClick={() => setCategory(c)}
                   className={`px-4 py-1.5 rounded-full text-xs font-semibold tracking-wide border transition-all cursor-pointer ${category === c ? "bg-navy text-gold border-navy" : "bg-paper text-navy border-navy/10 hover:border-gold hover:text-gold"}`}>
@@ -118,7 +133,7 @@ export default function ProjectsPage() {
                       <div className="space-y-4 pt-4 border-t border-navy/5 mt-6">
                         <div className="flex justify-between items-center text-xs text-ink/75">
                           <span className={d <= 3 ? "text-red-700 font-bold" : ""}>📅 {fmt(p.deadline)} · {d} day{d !== 1 ? "s" : ""} left</span>
-                          <span className="font-semibold text-gold">Team up to {p.teamCap}</span>
+                          <span className="font-semibold text-gold">{p.teamCap > 1 ? `Teams up to ${p.teamCap}` : "Individuals"}</span>
                         </div>
                         <Link href={`/projects/${p.id}`} className="w-full py-2.5 rounded-lg bg-navy text-paper text-xs font-bold hover:bg-navy-dark transition-all duration-300 cursor-pointer text-center border border-navy inline-block">
                           View &amp; apply

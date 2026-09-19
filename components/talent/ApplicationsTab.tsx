@@ -11,7 +11,7 @@ export function ApplicationsTab({ applications, onChanged, goTo }: { application
   const [busyId, setBusyId] = useState<string | null>(null);
 
   async function withdraw(id: string) {
-    if (!confirm("Withdraw this application? You can apply again later if the project is still open.")) return;
+    if (!confirm("Withdraw this application? Your team\u2019s roster unfreezes and you can apply again while the project is open.")) return;
     setError(null); setBusyId(id);
     const res = await api(`/api/applications/${id}`, "PATCH", { status: "WITHDRAWN" });
     setBusyId(null);

@@ -11,8 +11,9 @@ import { ApplicationsTab } from "@/components/talent/ApplicationsTab";
 import { SubmissionsTab } from "@/components/talent/SubmissionsTab";
 import { CertificatesTab } from "@/components/talent/CertificatesTab";
 import { ProfileTab } from "@/components/talent/ProfileTab";
+import { TeamsTab } from "@/components/talent/TeamsTab";
 
-const TAB_IDS = ["overview", "projects", "applications", "submissions", "certificates", "verification", "profile"] as const;
+const TAB_IDS = ["overview", "projects", "teams", "applications", "submissions", "certificates", "verification", "profile"] as const;
 export type TalentTab = (typeof TAB_IDS)[number];
 
 function TalentDashboard() {
@@ -23,12 +24,15 @@ function TalentDashboard() {
   if (error || !data) return <LoadingScreen text={error ?? "Something went wrong."} />;
 
   const { profile, projects, applications, submissions, certificates } = data;
+  const teams = data.teams ?? [];
+  const pendingInvites = teams.filter(t => t.members.some(m => m.user.id === profile.id && m.status === "INVITED")).length;
   const selected = applications.filter(a => a.status === "SELECTED");
   const needsSubmission = selected.filter(a => !submissions.some(s => s.teamId === a.teamId && s.status !== "REJECTED")).length;
 
   const tabs: TabDef<TalentTab>[] = [
     { id: "overview",     label: "Overview",         icon: "🏠" },
     { id: "projects",     label: "Find Projects",    icon: "🔎", badge: projects.length },
+    { id: "teams",        label: "My Teams",         icon: "👥", badge: pendingInvites, badgeColor: "#97640E" },
     { id: "applications", label: "My Applications",  icon: "📋" },
     { id: "submissions",  label: "My Submissions",   icon: "📤", badge: needsSubmission, badgeColor: "#E53E3E" },
     { id: "certificates", label: "My Certificates",  icon: "🏅", badge: certificates.length + (data.certificateHolds?.length ?? 0), badgeColor: (data.certificateHolds?.length ?? 0) > 0 ? "#97640E" : "var(--success)" },
@@ -63,7 +67,8 @@ function TalentDashboard() {
       }
     >
       {tab === "overview"     && <OverviewTab data={data} goTo={setTab} />}
-      {tab === "projects"     && <ProjectsTab projects={projects} applications={applications} submissions={submissions} onChanged={refresh} goTo={setTab} />}
+      {tab === "projects"     && <ProjectsTab projects={projects} applications={applications} submissions={submissions} teams={teams} onChanged={refresh} goTo={setTab} />}
+      {tab === "teams"        && <TeamsTab teams={teams} meId={profile.id} onChanged={refresh} goTo={setTab} />}
       {tab === "applications" && <ApplicationsTab applications={applications} onChanged={refresh} goTo={setTab} />}
       {tab === "submissions"  && <SubmissionsTab applications={applications} submissions={submissions} onChanged={refresh} />}
       {tab === "certificates" && <CertificatesTab certificates={certificates} holds={data.certificateHolds ?? []} talentId={profile.id} goTo={setTab} />}

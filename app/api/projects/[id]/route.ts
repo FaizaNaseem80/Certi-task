@@ -6,6 +6,7 @@ import { PROJECT_CATEGORIES, TEAM_CAP_MAX, TEAM_CAP_MIN, isOneOf } from "@/lib/e
 import { projectListInclude } from "@/lib/queries";
 import { audit } from "@/lib/audit";
 import { parseDeadline, parseSkills } from "@/lib/projects";
+import { notify } from "@/lib/notifications";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -103,6 +104,16 @@ export async function PATCH(req: Request, { params }: Params) {
       if (!Number.isInteger(cap) || cap < TEAM_CAP_MIN || cap > TEAM_CAP_MAX) {
         return NextResponse.json({ error: `Team size must be between ${TEAM_CAP_MIN} and ${TEAM_CAP_MAX}` }, { status: 400 });
       }
+      if (cap < project.teamCap) {
+        const largest = await prisma.team.findFirst({
+          where: { projectId: id, application: { isNot: null } },
+          select: { _count: { select: { members: { where: { status: "ACCEPTED" } } } } },
+          orderBy: { members: { _count: "desc" } },
+        });
+        if (largest && largest._count.members > cap) {
+          return NextResponse.json({ error: `A team of ${largest._count.members} has already applied; team size can't be lower than that.` }, { status: 409 });
+        }
+      }
       data.teamCap = cap;
     }
 
@@ -116,6 +127,18 @@ export async function PATCH(req: Request, { params }: Params) {
       to: updated.status,
       fields: Object.keys(data),
     });
+
+    // Selected teams hear about a moved deadline.
+    if (data.deadline instanceof Date && data.deadline.getTime() !== project.deadline.getTime()) {
+      const members = await prisma.teamMember.findMany({
+        where: { status: "ACCEPTED", team: { projectId: id, application: { status: "SELECTED" } } },
+        select: { userId: true },
+      });
+      const when = data.deadline.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
+      for (const m of members) {
+        await notify(m.userId, "deadline.reminder", `Deadline changed: ${updated.title}`, `The client moved the deadline to ${when}.`, "/talent/dashboard?tab=submissions");
+      }
+    }
 
     return NextResponse.json({ success: true, project: updated });
   } catch (error) {

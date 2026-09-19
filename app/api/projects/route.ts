@@ -55,7 +55,7 @@ export async function POST(req: Request) {
     const canPublish = me.verificationStatus === "VERIFIED";
 
     const body = await req.json();
-    const { title, description, category, requiredSkills, deliverables, deadline, teamCap } = body;
+    const { title, description, category, requiredSkills, deliverables, deadline, teamCap, draft } = body;
 
     if (!isString(title, 200) || !isString(description, 10000) || !isString(deliverables, 10000)) {
       return NextResponse.json({ error: "Title, description and deliverables are required" }, { status: 400 });
@@ -86,8 +86,8 @@ export async function POST(req: Request) {
         deliverables: deliverables.trim(),
         deadline: deadlineDate,
         teamCap: cap,
-        status: canPublish ? "ACTIVE" : "DRAFT",
-        publishedAt: canPublish ? new Date() : null,
+        status: canPublish && !draft ? "ACTIVE" : "DRAFT",
+        publishedAt: canPublish && !draft ? new Date() : null,
       },
       include: projectListInclude,
     });
@@ -97,7 +97,7 @@ export async function POST(req: Request) {
     return NextResponse.json({
       success: true,
       project,
-      notice: canPublish ? null : "Saved as a draft. Once your verification is approved you can publish it from My Projects.",
+      notice: canPublish ? (draft ? "Saved as a draft. Publish it from My Projects whenever you're ready." : null) : "Saved as a draft. Once your verification is approved you can publish it from My Projects.",
     });
   } catch (error) {
     console.error("Create project error:", error);

@@ -4,6 +4,8 @@ import { requireRole } from "@/lib/auth";
 import { isString } from "@/lib/validation";
 import { applicationInclude } from "@/lib/queries";
 import { audit } from "@/lib/audit";
+import { notify } from "@/lib/notifications";
+import { isOnAnotherTeam, teamInclude } from "@/lib/teams";
 
 /**
  * GET /api/applications
@@ -33,9 +35,9 @@ export async function GET() {
 }
 
 /**
- * POST /api/applications — talent applies to a project.
- * Phase 1: creates a solo team (the applicant as LEAD) and the application in
- * one transaction. Phase 3 adds inviting other members before applying.
+ * POST /api/applications
+ *  - { teamId, pitch }              lead applies with an existing team (roster freezes)
+ *  - { projectId, teamName, pitch } quick solo apply: creates a team of one and applies
  */
 export async function POST(req: Request) {
   const auth = await requireRole("TALENT");
@@ -47,9 +49,37 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Confirm your email address before applying" }, { status: 403 });
     }
 
-    const { projectId, teamName, pitch } = await req.json();
+    const { projectId: bodyProjectId, teamId, teamName, pitch } = await req.json();
+    if (!isString(pitch, 10000)) return NextResponse.json({ error: "A pitch is required" }, { status: 400 });
 
-    if (!isString(projectId, 100) || !isString(teamName, 100) || !isString(pitch, 10000)) {
+    // ── Team apply ──
+    if (isString(teamId, 100)) {
+      const team = await prisma.team.findUnique({ where: { id: teamId }, include: teamInclude });
+      if (!team || team.leadId !== auth.userId) return NextResponse.json({ error: "Only the team lead can apply" }, { status: 403 });
+      if (team.application) return NextResponse.json({ error: "This team has already applied" }, { status: 409 });
+      if (team.project.status !== "ACTIVE" || team.project.deadline < new Date()) return NextResponse.json({ error: "This project is not accepting applications" }, { status: 409 });
+      const accepted = team.members.filter((m) => m.status === "ACCEPTED");
+      if (accepted.length > team.project.teamCap) return NextResponse.json({ error: `This project allows teams of up to ${team.project.teamCap}` }, { status: 409 });
+      const pending = team.members.filter((m) => m.status === "INVITED").length + team.invites.length;
+      const application = await prisma.$transaction(async (tx) => {
+        // Open invitations lapse once the roster is frozen.
+        if (pending > 0) {
+          await tx.teamMember.updateMany({ where: { teamId, status: "INVITED" }, data: { status: "EXPIRED" } });
+          await tx.teamInvite.deleteMany({ where: { teamId, acceptedAt: null } });
+        }
+        const app = await tx.application.create({ data: { projectId: team.projectId, teamId, pitch: pitch.trim() }, include: applicationInclude });
+        await audit(auth, "application.submitted", "application", app.id, { projectId: team.projectId, teamId, members: accepted.length }, tx);
+        return app;
+      }, { maxWait: 10_000, timeout: 30_000 });
+      for (const m of accepted) if (m.user.id !== auth.userId) {
+        await notify(m.user.id, "application.status", `${team.name} applied`, `${auth.name} submitted your team's application for "${team.project.title}".`, "/talent/dashboard?tab=applications");
+      }
+      return NextResponse.json({ success: true, application, lapsedInvites: pending });
+    }
+
+    // ── Solo quick apply ──
+    const projectId = bodyProjectId;
+    if (!isString(projectId, 100) || !isString(teamName, 100)) {
       return NextResponse.json({ error: "Project, team name and pitch are required" }, { status: 400 });
     }
 
@@ -60,17 +90,8 @@ export async function POST(req: Request) {
     if (!project) {
       return NextResponse.json({ error: "This project is not accepting applications" }, { status: 404 });
     }
-
-    const existing = await prisma.application.findFirst({
-      where: {
-        projectId,
-        status: { not: "WITHDRAWN" },
-        team: { members: { some: { userId: auth.userId, status: { in: ["ACCEPTED", "INVITED"] } } } },
-      },
-      select: { id: true },
-    });
-    if (existing) {
-      return NextResponse.json({ error: "You have already applied to this project" }, { status: 409 });
+    if (await isOnAnotherTeam(auth.userId, projectId)) {
+      return NextResponse.json({ error: "You are already on a team for this project" }, { status: 409 });
     }
 
     const application = await prisma.$transaction(async (tx) => {

@@ -89,3 +89,34 @@ export function sendVerificationDecisionEmail(to: string, name: string, approved
     : layout("Verification not approved yet", `<p>Hi ${name},</p><p>We couldn't approve your verification yet.</p><p style="padding:12px;background:#FBE9E9;border-radius:8px"><strong>Reason:</strong> ${reason ?? "not specified"}</p><p>Fix the issue and resubmit from your dashboard.</p>${button(dashboardUrl, "Resubmit")}`);
   return sendEmail({ to, subject, text, html });
 }
+
+export function sendTeamInviteEmail(to: string, recipientName: string | null, leadName: string, teamName: string, projectTitle: string, url: string, hasAccount: boolean) {
+  const greet = recipientName ? `Hi ${recipientName},` : "Hi,";
+  const action = hasAccount ? "Open your dashboard to accept or decline." : "Create a free talent account with this email address and the invitation will be waiting for you.";
+  return sendEmail({
+    to,
+    subject: `${leadName} invited you to a team on CertiTask`,
+    text: `${greet}
+
+${leadName} invited you to join the team "${teamName}" for the project "${projectTitle}" on CertiTask. ${action}
+
+${url}
+
+The invitation expires in 7 days.`,
+    html: layout(`You're invited to "${teamName}"`, `<p>${greet}</p><p><strong>${leadName}</strong> invited you to join the team <strong>${teamName}</strong> for the project <strong>${projectTitle}</strong>.</p><p>${action}</p>${button(url, hasAccount ? "View invitation" : "Sign up and join")}<p style="font-size:12px;color:#7B8794">The invitation expires in 7 days.</p>`),
+  });
+}
+
+export function sendDeadlineReminderEmail(to: string, name: string, projectTitle: string, deadline: Date, url: string) {
+  const when = deadline.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
+  return sendEmail({
+    to,
+    subject: `Reminder: "${projectTitle}" is due ${when}`,
+    text: `Hi ${name},
+
+Your team's submission for "${projectTitle}" is due on ${when}. Submit your deliverables from your dashboard:
+
+${url}`,
+    html: layout("Deadline in 3 days", `<p>Hi ${name},</p><p>Your team's submission for <strong>${projectTitle}</strong> is due on <strong>${when}</strong>.</p>${button(url, "Submit deliverables")}`),
+  });
+}

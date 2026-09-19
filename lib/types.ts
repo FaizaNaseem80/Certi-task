@@ -63,15 +63,21 @@ export interface ProjectDto {
   teamCap: number;
   status: ProjectStatus;
   publishedAt: string | null;
+  closedAt?: string | null;
   createdAt: string;
   client?: { id: string; name: string; clientType: ClientType | null; avatarUrl: string | null; verificationStatus: VerificationStatus };
   _count?: { applications: number; submissions: number; teams?: number };
 }
 
+export type TeamMemberStatus = "INVITED" | "ACCEPTED" | "DECLINED" | "REMOVED" | "EXPIRED" | "LEFT";
+
 export interface TeamMemberDto {
   id: string;
   role: "LEAD" | "MEMBER";
-  status: "INVITED" | "ACCEPTED" | "DECLINED" | "REMOVED";
+  status: TeamMemberStatus;
+  invitedAt?: string;
+  expiresAt?: string | null;
+  respondedAt?: string | null;
   user: { id: string; name: string; email: string; verificationStatus: VerificationStatus };
 }
 
@@ -81,6 +87,16 @@ export interface TeamDto {
   projectId: string;
   leadId: string;
   members: TeamMemberDto[];
+}
+
+/** Full team as returned by /api/teams and the talent dashboard. */
+export interface TeamFullDto extends TeamDto {
+  createdAt: string;
+  project: { id: string; title: string; status: ProjectStatus; deadline: string; teamCap: number; client: { id: string; name: string } };
+  lead: { id: string; name: string };
+  invites: { id: string; email: string; expiresAt: string; createdAt: string }[];
+  application: { id: string; status: ApplicationStatus; createdAt: string } | null;
+  submission: { id: string; status: SubmissionStatus } | null;
 }
 
 export interface ApplicationDto {
@@ -139,4 +155,5 @@ export interface DashboardResponse {
   submissions: SubmissionDto[];
   certificates: CertificateDto[];
   certificateHolds: CertificateHoldDto[];
+  teams: TeamFullDto[];
 }

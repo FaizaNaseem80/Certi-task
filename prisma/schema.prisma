@@ -71,6 +71,8 @@ enum TeamMemberStatus {
   ACCEPTED
   DECLINED
   REMOVED
+  EXPIRED
+  LEFT
 }
 
 enum ApplicationStatus {
@@ -207,15 +209,17 @@ model Project {
  */
 
 model Team {
-  id        String   @id @default(uuid())
-  name      String
-  projectId String
-  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  leadId    String
-  lead      User     @relation("TeamLead", fields: [leadId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
+  id             String    @id @default(uuid())
+  name           String
+  projectId      String
+  project        Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  leadId         String
+  lead           User      @relation("TeamLead", fields: [leadId], references: [id], onDelete: Cascade)
+  reminderSentAt DateTime? // deadline reminder (3 days before) already sent
+  createdAt      DateTime  @default(now())
 
   members      TeamMember[]
+  invites      TeamInvite[]
   application  Application?
   submission   Submission?
   certificates Certificate[]
@@ -233,12 +237,32 @@ model TeamMember {
   user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   role        TeamMemberRole   @default(MEMBER)
   status      TeamMemberStatus @default(INVITED)
+  invitedById String?
   invitedAt   DateTime         @default(now())
+  expiresAt   DateTime? // invitations lapse after 7 days
   respondedAt DateTime?
 
   @@unique([teamId, userId])
   @@index([userId])
   @@map("team_members")
+}
+
+/// Invitation sent to an email address that has no CertiTask account yet.
+/// Converted into a TeamMember (INVITED) when that email signs up as talent.
+model TeamInvite {
+  id          String    @id @default(uuid())
+  teamId      String
+  team        Team      @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  email       String
+  invitedById String
+  token       String    @unique
+  expiresAt   DateTime
+  createdAt   DateTime  @default(now())
+  acceptedAt  DateTime?
+
+  @@unique([teamId, email])
+  @@index([email])
+  @@map("team_invites")
 }
 
 /**

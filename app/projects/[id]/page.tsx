@@ -30,7 +30,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
     cta = <Link href="/client/dashboard?tab=projects" className="inline-block w-full text-center py-3 rounded-lg border border-navy text-navy font-bold text-sm">Manage in your dashboard</Link>;
   } else if (session?.role === "TALENT") {
     cta = open
-      ? <Link href="/talent/dashboard?tab=projects" className="inline-block w-full text-center py-3 rounded-lg bg-navy text-paper font-bold text-sm hover:bg-navy-dark">Apply from your dashboard →</Link>
+      ? <Link href={`/talent/dashboard?tab=projects&apply=${project.id}`} className="inline-block w-full text-center py-3 rounded-lg bg-navy text-paper font-bold text-sm hover:bg-navy-dark">Apply now →</Link>
       : <span className="inline-block w-full text-center py-3 rounded-lg bg-gray-100 text-gray-500 font-bold text-sm">Applications closed</span>;
   } else if (!session) {
     cta = <Link href={`/auth/login?next=${encodeURIComponent(`/projects/${project.id}`)}`} className="inline-block w-full text-center py-3 rounded-lg bg-navy text-paper font-bold text-sm hover:bg-navy-dark">Sign in as talent to apply</Link>;
@@ -78,7 +78,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
             <div className="bg-white rounded-xl border border-navy/5 p-6 space-y-4">
               <div className="flex justify-between text-sm"><span className="text-ink/60">Deadline</span><span className={`font-bold ${daysLeft <= 3 ? "text-red-700" : "text-navy"}`}>{fmt(project.deadline)}</span></div>
               <div className="flex justify-between text-sm"><span className="text-ink/60">Time left</span><span className="font-bold text-navy">{open ? `${daysLeft} day${daysLeft !== 1 ? "s" : ""}` : "Closed"}</span></div>
-              <div className="flex justify-between text-sm"><span className="text-ink/60">Team size</span><span className="font-bold text-navy">up to {project.teamCap}</span></div>
+              <div className="flex justify-between text-sm"><span className="text-ink/60">Team size</span><span className="font-bold text-navy">{project.teamCap > 1 ? `teams of up to ${project.teamCap}` : "individuals only"}</span></div>
               <div className="flex justify-between text-sm"><span className="text-ink/60">Applications</span><span className="font-bold text-navy">{project._count.applications}</span></div>
               <div className="flex justify-between text-sm"><span className="text-ink/60">Posted</span><span className="font-bold text-navy">{fmt(project.publishedAt ?? project.createdAt)}</span></div>
               <div className="pt-2">{cta}</div>
