@@ -79,9 +79,9 @@ export async function POST(req: Request) {
       );
     }
 
-    if (!user.isVerified) {
+    if (user.suspendedAt) {
       return NextResponse.json(
-        { error: "This account has not been verified." },
+        { error: "This account has been suspended. Contact support if you think this is a mistake." },
         { status: 403 }
       );
     }
@@ -91,7 +91,7 @@ export async function POST(req: Request) {
       userId: user.id,
       email: user.email,
       name: user.name,
-      role: user.role as "COMPANY" | "STUDENT",
+      role: user.role,
     });
 
     // Set cookie

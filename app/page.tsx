@@ -6,68 +6,75 @@ import { Button } from "@/components/Button";
 
 
 export default async function Home() {
-  let dbCompanies: Array<{
+  let dbClients: Array<{
     id: string;
     name: string;
-    domain: string | null;
+    clientType: "INDIVIDUAL" | "ORGANIZATION" | null;
+    verificationStatus: string;
+    industry: string | null;
     bio: string | null;
-    website: string | null;
+    location: string | null;
+    _count: { projectsPosted: number };
   }> = [];
 
   try {
-    dbCompanies = await prisma.user.findMany({
-      where: { role: "COMPANY" },
+    dbClients = await prisma.user.findMany({
+      where: { role: "CLIENT", suspendedAt: null, projectsPosted: { some: { status: "ACTIVE" } } },
       take: 3,
       orderBy: { createdAt: "desc" },
       select: {
         id: true,
         name: true,
-        domain: true,
+        clientType: true,
+        verificationStatus: true,
+        industry: true,
         bio: true,
-        website: true,
+        location: true,
+        _count: { select: { projectsPosted: { where: { status: "ACTIVE" } } } },
       },
     });
   } catch (error) {
-    console.error("Failed to fetch featured companies from database:", error);
+    console.error("Failed to fetch featured clients from database:", error);
   }
 
-  const featuredCompanies = dbCompanies.map((c) => ({
+  const displayClients = dbClients.map((c) => ({
+    id: c.id,
     name: c.name,
-    industry: c.domain || "Technology",
-    description: c.bio || "Corporate sponsor actively hiring through CertiTask.",
-    location: c.website || "Global",
+    tag: c.industry || (c.clientType === "ORGANIZATION" ? "Organization" : "Individual"),
+    verified: c.verificationStatus === "VERIFIED",
+    description: c.bio || "Posting real projects on CertiTask.",
+    location: c.location || "Remote",
+    openProjects: c._count.projectsPosted,
     logoChar: c.name.charAt(0).toUpperCase(),
   }));
-
-  const displayCompanies = featuredCompanies;
 
   const steps = [
     {
       number: "01",
-      title: "Companies Post Real Projects",
-      description: "Companies post short, well-defined real-world projects outlining exactly what needs to be built.",
+      title: "Clients Post Real Projects",
+      description: "Organizations and individuals post short, well-defined projects outlining exactly what needs to be done.",
     },
     {
       number: "02",
-      title: "Students Apply & Build",
-      description: "Students find suitable projects, assemble teams, and work on them using real developer workflows.",
+      title: "Talent Applies & Builds",
+      description: "Talent finds projects that match their skills, forms a team or goes solo, and does the work.",
     },
     {
       number: "03",
-      title: "Companies Review the Work",
-      description: "Completed features are submitted directly to company sponsors for review, feedback, and signoff.",
+      title: "Clients Review the Work",
+      description: "Deliverables go straight to the client for review, feedback and sign-off.",
     },
     {
       number: "04",
       title: "Earn Verified Proof",
-      description: "Once approved, students receive an immutable digital CertiTask certificate listing their direct contributions.",
+      description: "Once approved, every team member receives a CertiTask certificate naming the project, the client and the skills used.",
     },
   ];
 
   const benefits = [
     {
       title: "Real-world Project Experience",
-      description: "Graduate beyond generic tutorial apps. Build actual product components that companies run.",
+      description: "Skip tutorial apps. Build things a real client actually needed.",
       icon: (
         <svg className="h-6 w-6 text-gold" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
@@ -76,7 +83,7 @@ export default async function Home() {
     },
     {
       title: "Verified Certificates",
-      description: "Every achievement is backed by corporate signoff, preventing resume inflation.",
+      description: "Every certificate is backed by a client sign-off and a public verification page.",
       icon: (
         <svg className="h-6 w-6 text-gold" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
@@ -94,7 +101,7 @@ export default async function Home() {
     },
     {
       title: "Team-based Work",
-      description: "Collaborate in cross-functional student teams, imitating real-world corporate agile environments.",
+      description: "Work solo or in a team of up to 20, the way real projects are run.",
       icon: (
         <svg className="h-6 w-6 text-gold" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
@@ -111,8 +118,8 @@ export default async function Home() {
       ),
     },
     {
-      title: "Free for Students",
-      description: "Absolutely zero application fees or registration costs for students. Work and earn without barriers.",
+      title: "Free for Talent",
+      description: "No application fees, no registration costs. Only clients pay a small listing fee.",
       icon: (
         <svg className="h-6 w-6 text-gold" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M12 16V3" />
@@ -148,8 +155,8 @@ export default async function Home() {
                 <Button href="/projects" variant="gold" className="w-full sm:w-auto px-8 py-3.5 text-base">
                   Explore Projects
                 </Button>
-                <Button href="/contact" variant="outline" className="w-full sm:w-auto px-8 py-3.5 text-base border-paper text-paper hover:bg-paper hover:text-navy">
-                  For Companies
+                <Button href="/auth/signup" variant="outline" className="w-full sm:w-auto px-8 py-3.5 text-base border-paper text-paper hover:bg-paper hover:text-navy">
+                  Post a Project
                 </Button>
               </div>
             </div>
@@ -197,7 +204,7 @@ export default async function Home() {
             <h2 className="text-xs font-bold text-gold tracking-widest uppercase">The Pipeline</h2>
             <p className="text-3xl sm:text-4xl font-extrabold text-paper tracking-tight">How It Works</p>
             <p className="text-lg text-paper/75">
-              CertiTask provides a simple, structured method for students to gain verified experience.
+              A simple, structured way for talent to gain verified experience and for clients to get real work done.
             </p>
           </div>
 
@@ -248,29 +255,29 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* 4. FEATURED COMPANIES SHOWCASE SECTION */}
+      {/* 4. CLIENTS SHOWCASE SECTION */}
       <section className="py-24 bg-paper text-ink border-t border-navy/5">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-12">
             <div className="space-y-3">
               <h2 className="text-xs font-bold text-gold tracking-widest uppercase">Trusted Partners</h2>
-              <h3 className="text-3xl font-extrabold text-navy tracking-tight">Featured Companies</h3>
+              <h3 className="text-3xl font-extrabold text-navy tracking-tight">Clients posting now</h3>
               <p className="text-sm text-ink/75 max-w-xl">
                 Explore profiles, ongoing roles, and verification requirements set by our partnered firms.
               </p>
             </div>
             <div className="mt-4 sm:mt-0">
-              <Button href="/companies" variant="outline">
-                View All Companies
+              <Button href="/clients" variant="outline">
+                View all clients
               </Button>
             </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {displayCompanies.length > 0 ? (
-              displayCompanies.map((comp) => (
+            {displayClients.length > 0 ? (
+              displayClients.map((comp) => (
                 <div
-                  key={comp.name}
+                  key={comp.id}
                   className="bg-white p-6 rounded-xl border border-navy/5 shadow-xs hover:shadow-lg transition-shadow"
                 >
                   <div className="flex items-center gap-4 mb-4">
@@ -280,8 +287,9 @@ export default async function Home() {
                     <div>
                       <h4 className="font-bold text-navy text-base">{comp.name}</h4>
                       <span className="inline-block text-[10px] font-semibold text-gold bg-gold/10 px-2 py-0.5 rounded border border-gold/10 mt-1">
-                        {comp.industry}
+                        {comp.tag}
                       </span>
+                      {comp.verified && <span className="inline-block text-[10px] font-semibold text-green-700 bg-green-50 px-2 py-0.5 rounded border border-green-200 mt-1 ml-1">✓ Verified</span>}
                     </div>
                   </div>
                   <p className="text-sm text-ink/85 leading-relaxed mb-6">
@@ -292,9 +300,9 @@ export default async function Home() {
                       <svg className="h-4 w-4 text-gold" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                       </svg>
-                      {comp.location}
+                      {comp.location} · {comp.openProjects} open
                     </span>
-                    <Link href="/companies" className="text-gold font-semibold hover:underline">
+                    <Link href={`/clients/${comp.id}`} className="text-gold font-semibold hover:underline">
                       View Profile &rarr;
                     </Link>
                   </div>
@@ -303,27 +311,27 @@ export default async function Home() {
             ) : (
               <div className="col-span-1 md:col-span-3 text-center py-12 bg-white rounded-xl border border-navy/5">
                 <p className="text-navy font-bold text-lg mb-2">More partners joining soon!</p>
-                <p className="text-ink/60 text-sm">Check back later to see our newly featured corporate sponsors.</p>
+                <p className="text-ink/60 text-sm">No clients have open projects right now. Check back soon.</p>
               </div>
             )}
           </div>
         </div>
       </section>
 
-      {/* 5. FOR STUDENTS SECTION */}
+      {/* 5. FOR TALENT SECTION */}
       <section className="py-20 bg-navy text-paper border-t border-gold/15">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
             <div className="space-y-6">
               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-gold/10 text-gold border border-gold/20">
-                For Students
+                For Talent
               </span>
               <h3 className="text-3xl font-extrabold tracking-tight">
                 Build your portfolio with real work, <br />
                 <span className="text-gold">not just course certificates.</span>
               </h3>
               <p className="text-paper/80 leading-relaxed font-sans text-sm">
-                Apply your theoretical knowledge to direct corporate project tasks. Complete real-world components, collaborate with student teammates, and walk away with verifiable proof of your skill.
+                Students, freelancers, career-changers: apply what you know to a real project, work solo or with a team, and walk away with verifiable proof of your skill.
               </p>
               <div className="pt-2">
                 <Button href="/projects" variant="gold" className="px-6 py-3">
@@ -332,17 +340,17 @@ export default async function Home() {
               </div>
             </div>
             <div className="bg-navy-dark/40 p-6 rounded-xl border border-paper/10 text-xs font-mono text-paper/70 space-y-2">
-              <p className="text-gold font-bold">{"// CERTITASK STUDENT PERKS:"}</p>
-              <p>&gt; Work on actual company codebase branches.</p>
+              <p className="text-gold font-bold">{"// FOR TALENT:"}</p>
+              <p>&gt; Work on projects a client actually needs.</p>
               <p>&gt; Collaborate in agile sprint pipelines.</p>
-              <p>&gt; Receive direct feedback from tech sponsors.</p>
+              <p>&gt; Get direct feedback from the client.</p>
               <p>&gt; Build verifiable credential badges.</p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* 6. FOR COMPANIES SECTION */}
+      {/* 6. FOR CLIENTS SECTION */}
       <section className="py-20 bg-paper text-ink">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
@@ -354,17 +362,17 @@ export default async function Home() {
             </div>
             <div className="order-1 md:order-2 space-y-6">
               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-navy/5 text-navy border border-navy/10">
-                For Companies
+                For Clients
               </span>
               <h3 className="text-3xl font-extrabold tracking-tight text-navy">
-                Get focused real-world work completed <br />
-                <span className="text-gold">by motivated student teams.</span>
+                Get focused, well-scoped work done <br />
+                <span className="text-gold">by motivated talent.</span>
               </h3>
               <p className="text-ink/80 leading-relaxed text-sm">
-                Submit specific development tasks, UX redesigns, or integration projects. Review top student implementations and build a direct pipeline to qualified entry-level candidates.
+                A landing page, a data script, a marketing plan, a research brief. Post it as an organization or an individual, review the work, and issue a certificate when it&apos;s done well.
               </p>
               <div className="pt-2">
-                <Button href="/contact" variant="primary" className="px-6 py-3">
+                <Button href="/auth/signup" variant="primary" className="px-6 py-3">
                   Post a Project
                 </Button>
               </div>
@@ -385,7 +393,7 @@ export default async function Home() {
                 Publicly Verifiable Credentials
               </h3>
               <p className="text-sm text-paper/75 leading-relaxed">
-                Every project certificate issued on CertiTask features a unique public verification hash. Employers can query our database instantly without login requirements to confirm the legitimacy, institution, and project sign-off metrics.
+                Every certificate has a unique ID and a signed record. Anyone can look it up on the verification page, no account needed, and see the recipient, the client, the project and the skills, plus whether it has been revoked.
               </p>
               <div className="pt-2">
                 <Button href="/verify" variant="outline" className="border-paper text-paper hover:bg-paper hover:text-navy">
@@ -410,9 +418,9 @@ export default async function Home() {
               </div>
               <div className="bg-navy-dark p-3 rounded text-[10px] font-mono text-green-400 border border-green-950">
                 STATUS: VALID<br />
-                STUDENT: JANE DOE<br />
-                ISSUED: APEX GLOBAL SOLUTIONS<br />
-                HASH: 8fb4e1f7...
+                TALENT: JANE DOE<br />
+                ISSUER: ACME STUDIO (VERIFIED ORG)<br />
+                ID: CERT-AP4Q-5FM7-ZL3U
               </div>
             </div>
           </div>
@@ -428,7 +436,7 @@ export default async function Home() {
             <span className="text-gold">Start proving them.</span>
           </h2>
           <p className="text-lg text-paper/85 max-w-xl mx-auto leading-relaxed">
-            Join the CertiTask network today. Showcase verified experience, earn certificates, and connect directly with companies.
+            Join CertiTask today. Do real work, earn certificates, and let anyone verify them.
           </p>
           <div className="pt-4">
             <Button href="/auth/signup" variant="gold" className="px-10 py-4 text-lg">

@@ -94,11 +94,24 @@ export async function getSession(): Promise<SessionPayload | null> {
 
   const user = await prisma.user.findUnique({
     where: { id: payload.userId },
-    select: { email: true, name: true, role: true, isVerified: true },
+    select: { email: true, name: true, role: true, suspendedAt: true },
   });
-  if (!user || !user.isVerified || user.role !== payload.role) return null;
+  if (!user || user.suspendedAt || user.role !== payload.role) return null;
 
   return { ...payload, email: user.email, name: user.name, role: user.role };
+}
+
+export async function requireRole(
+  ...roles: SessionPayload["role"][]
+): Promise<SessionPayload | NextResponse> {
+  const session = await getSession();
+  if (!session) {
+    return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+  }
+  if (!roles.includes(session.role)) {
+    return NextResponse.json({ error: "You do not have access to this resource" }, { status: 403 });
+  }
+  return session;
 }
 
 export async function requireAdmin(): Promise<SessionPayload | NextResponse> {

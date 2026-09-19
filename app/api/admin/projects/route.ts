@@ -9,16 +9,11 @@ export async function GET() {
   try {
     const projects = await prisma.project.findMany({
       include: {
-        company: {
-          select: { name: true, email: true }
-        },
-        _count: {
-          select: { applications: true, submissions: true, certificates: true }
-        }
+        client: { select: { id: true, name: true, email: true, clientType: true } },
+        _count: { select: { applications: true, submissions: true, certificates: true } },
       },
       orderBy: { createdAt: "desc" },
     });
-
     return NextResponse.json({ projects });
   } catch (error) {
     console.error("Admin projects error:", error);

@@ -6,126 +6,420 @@ datasource db {
   provider = "postgresql"
 }
 
+/**
+ * ───────────────────────── Enums ─────────────────────────
+ */
+
 enum Role {
-  COMPANY
-  STUDENT
+  CLIENT // posts projects (an organization or an individual)
+  TALENT // does the work and earns certificates
 }
 
-model User {
-  id         String   @id @default(uuid())
-  email      String   @unique
-  name       String
-  password   String
-  role       Role     @default(COMPANY)
-  isVerified Boolean  @default(true)
-  domain     String?
-  logoUrl    String?
-  bio        String?
-  website    String?
-  phone      String?
-  location   String?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+enum ClientType {
+  INDIVIDUAL
+  ORGANIZATION
+}
 
-  // Company-specific fields
-  companySize        String? // e.g., "1-50", "51-200", "201-1000", etc.
-  industry           String? // e.g., "Technology", "Finance", etc.
+enum VerificationStatus {
+  UNVERIFIED
+  PENDING_REVIEW
+  VERIFIED
+  REJECTED
+}
+
+enum VerificationKind {
+  IDENTITY // talent or individual client: government ID
+  ORGANIZATION // organization client: registration proof + authorized person ID
+}
+
+enum DocumentType {
+  ID_FRONT
+  ID_BACK
+  SELFIE_WITH_ID
+  ORG_REGISTRATION
+  AUTHORIZED_PERSON_ID
+  OTHER
+}
+
+enum ProjectCategory {
+  SOFTWARE_DEVELOPMENT
+  WEB_AND_MOBILE
+  DATA_AND_AI
+  DESIGN_AND_UX
+  MARKETING_AND_CONTENT
+  RESEARCH_AND_WRITING
+  BUSINESS_AND_OPERATIONS
+  OTHER
+}
+
+enum ProjectStatus {
+  DRAFT
+  PENDING_PAYMENT
+  ACTIVE
+  PAUSED
+  CLOSED
+  COMPLETED
+}
+
+enum TeamMemberRole {
+  LEAD
+  MEMBER
+}
+
+enum TeamMemberStatus {
+  INVITED
+  ACCEPTED
+  DECLINED
+  REMOVED
+}
+
+enum ApplicationStatus {
+  PENDING
+  SHORTLISTED
+  SELECTED
+  REJECTED
+  WITHDRAWN
+}
+
+enum SubmissionStatus {
+  SUBMITTED
+  APPROVED
+  REJECTED
+}
+
+enum CertificateStatus {
+  VERIFIED
+  REVOKED
+  DISPUTED
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  REFUNDED
+}
+
+/**
+ * ───────────────────────── Users ─────────────────────────
+ */
+
+model User {
+  id              String      @id @default(uuid())
+  email           String      @unique
+  emailVerifiedAt DateTime?
+  password        String
+  role            Role
+  clientType      ClientType? // required when role = CLIENT
+  name            String // display name (person or organization)
+  legalName       String? // name as it appears on the verified ID / registration; printed on certificates
+  suspendedAt     DateTime? // set by admin; blocks login
+
+  verificationStatus VerificationStatus @default(UNVERIFIED)
+  verifiedAt         DateTime?
+
+  // Common profile
+  avatarUrl String?
+  bio       String?
+  website   String?
+  phone     String?
+  location  String?
+
+  // Organization profile (clientType = ORGANIZATION)
+  industry           String?
+  organizationSize   String? // "1-50", "51-200", ...
   foundedYear        Int?
-  companyDescription String?
-  companyWebsite     String?
+  registrationNumber String? // SECP / NTN / business registration
   linkedinUrl        String?
 
-  // Student-specific fields
-  cnicNumber      String? @unique
-  cnicVerified    Boolean @default(false)
-  cnicUploadUrl   String? // URL to uploaded CNIC document
-  dateOfBirth     String?
-  gender          String? // Male, Female, Other
+  // Talent profile
+  dateOfBirth     DateTime?
+  gender          String?
   universityName  String?
   degreeProgram   String?
   currentSemester String?
   gpa             Float?
-  skillsArray     String? // JSON array of skills
+  skills          String[]  @default([])
   portfolioUrl    String?
   resumeUrl       String?
 
-  projects           Project[]     @relation("CompanyProjects")
-  applications       Application[] @relation("StudentApplications")
-  submissions        Submission[]  @relation("StudentSubmissions")
-  issuedCertificates Certificate[] @relation("CompanyCertificates")
+  // Government ID (never stored in plain text)
+  idNumberHash String? @unique
+  idLast4      String?
 
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  projectsPosted       Project[]             @relation("ClientProjects")
+  teamsLed             Team[]                @relation("TeamLead")
+  teamMemberships      TeamMember[]
+  submissions          Submission[]          @relation("SubmittedBy")
+  certificatesEarned   Certificate[]         @relation("TalentCertificates")
+  certificatesIssued   Certificate[]         @relation("ClientCertificates")
+  verificationRequests VerificationRequest[]
+  documents            Document[]
+  payments             Payment[]
+  notifications        Notification[]
+
+  @@index([role])
+  @@index([verificationStatus])
   @@map("users")
 }
 
+/**
+ * ───────────────────────── Projects ─────────────────────────
+ */
+
 model Project {
-  id             String   @id @default(uuid())
+  id             String          @id @default(uuid())
+  clientId       String
+  client         User            @relation("ClientProjects", fields: [clientId], references: [id], onDelete: Cascade)
   title          String
   description    String
-  requiredSkills String
+  category       ProjectCategory @default(OTHER)
+  requiredSkills String[]        @default([])
   deliverables   String
-  deadline       String
-  teamCap        Int      @default(20)
-  status         String   @default("Active") // Active, Paused, Closed
-  companyId      String
-  company        User     @relation("CompanyProjects", fields: [companyId], references: [id], onDelete: Cascade)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  deadline       DateTime
+  teamCap        Int             @default(1) // 1..20
+  status         ProjectStatus   @default(DRAFT)
+  publishedAt    DateTime?
+  closedAt       DateTime?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
 
+  teams        Team[]
   applications Application[]
   submissions  Submission[]
   certificates Certificate[]
+  payments     Payment[]
 
+  @@index([status, deadline])
+  @@index([clientId])
+  @@index([category])
   @@map("projects")
 }
 
-model Application {
+/**
+ * ───────────────────────── Teams ─────────────────────────
+ */
+
+model Team {
   id        String   @id @default(uuid())
-  teamName  String
-  members   String
-  pitch     String
-  status    String   @default("Pending") // Pending, Shortlisted, Selected, Rejected
+  name      String
   projectId String
   project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  studentId String?
-  student   User?    @relation("StudentApplications", fields: [studentId], references: [id], onDelete: SetNull)
+  leadId    String
+  lead      User     @relation("TeamLead", fields: [leadId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
 
+  members      TeamMember[]
+  application  Application?
+  submission   Submission?
+  certificates Certificate[]
+
+  @@index([projectId])
+  @@index([leadId])
+  @@map("teams")
+}
+
+model TeamMember {
+  id          String           @id @default(uuid())
+  teamId      String
+  team        Team             @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role        TeamMemberRole   @default(MEMBER)
+  status      TeamMemberStatus @default(INVITED)
+  invitedAt   DateTime         @default(now())
+  respondedAt DateTime?
+
+  @@unique([teamId, userId])
+  @@index([userId])
+  @@map("team_members")
+}
+
+/**
+ * ───────────────────────── Applications ─────────────────────────
+ */
+
+model Application {
+  id         String            @id @default(uuid())
+  projectId  String
+  project    Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  teamId     String            @unique
+  team       Team              @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  pitch      String
+  status     ApplicationStatus @default(PENDING)
+  reviewedAt DateTime?
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+
+  @@index([projectId, status])
   @@map("applications")
 }
 
+/**
+ * ───────────────────────── Submissions ─────────────────────────
+ */
+
 model Submission {
-  id            String   @id @default(uuid())
-  teamName      String
+  id            String           @id @default(uuid())
+  projectId     String
+  project       Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  teamId        String           @unique
+  team          Team             @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  submittedById String
+  submittedBy   User             @relation("SubmittedBy", fields: [submittedById], references: [id], onDelete: Cascade)
   submissionUrl String
   notes         String?
   feedback      String?
-  status        String   @default("Submitted") // Submitted, Approved, Rejected
-  projectId     String
-  project       Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  studentId     String?
-  student       User?    @relation("StudentSubmissions", fields: [studentId], references: [id], onDelete: SetNull)
-  createdAt     DateTime @default(now())
+  status        SubmissionStatus @default(SUBMITTED)
+  reviewedAt    DateTime?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
 
+  @@index([projectId, status])
   @@map("submissions")
 }
 
-model Certificate {
-  id           String   @id @default(uuid())
-  certId       String   @unique
-  title        String
-  studentName  String
-  studentEmail String
-  issueDate    String
-  expiryDate   String
-  status       String   @default("Verified") // Verified, Revoked, Disputed
-  companyId    String
-  company      User     @relation("CompanyCertificates", fields: [companyId], references: [id], onDelete: Cascade)
-  projectId    String?
-  project      Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
-  createdAt    DateTime @default(now())
+/**
+ * ───────────────────────── Certificates ─────────────────────────
+ */
 
+model Certificate {
+  id              String            @id @default(uuid())
+  certId          String            @unique // public, printed on the certificate: CERT-XXXX-...
+  talentId        String
+  talent          User              @relation("TalentCertificates", fields: [talentId], references: [id], onDelete: Restrict)
+  clientId        String
+  client          User              @relation("ClientCertificates", fields: [clientId], references: [id], onDelete: Restrict)
+  projectId       String
+  project         Project           @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  teamId          String?
+  team            Team?             @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  // Snapshots taken at issue time so the certificate never changes if the profiles do
+  recipientName   String
+  recipientEmail  String
+  issuerName      String
+  issuerType      ClientType
+  title           String
+  skills          String[]          @default([])
+  issuedAt        DateTime          @default(now())
+  signature       String // HMAC-SHA256 over the immutable fields; tamper evidence
+  status          CertificateStatus @default(VERIFIED)
+  statusReason    String?
+  statusChangedAt DateTime?
+  createdAt       DateTime          @default(now())
+
+  @@unique([projectId, talentId])
+  @@index([talentId])
+  @@index([clientId])
   @@map("certificates")
 }
+
+/**
+ * ───────────────────────── Verification ─────────────────────────
+ */
+
+model VerificationRequest {
+  id              String             @id @default(uuid())
+  userId          String
+  user            User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind            VerificationKind
+  status          VerificationStatus @default(PENDING_REVIEW)
+  formData        Json? // submitted fields (never the raw ID number)
+  submittedAt     DateTime           @default(now())
+  reviewedAt      DateTime?
+  reviewedBy      String? // admin identifier
+  rejectionReason String?
+
+  documents Document[]
+
+  @@index([status, submittedAt])
+  @@index([userId])
+  @@map("verification_requests")
+}
+
+model Document {
+  id                    String               @id @default(uuid())
+  userId                String
+  user                  User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  verificationRequestId String?
+  verificationRequest   VerificationRequest? @relation(fields: [verificationRequestId], references: [id], onDelete: SetNull)
+  type                  DocumentType
+  storageKey            String               @unique // object key in private storage
+  mimeType              String
+  sizeBytes             Int
+  createdAt             DateTime             @default(now())
+  deletedAt             DateTime? // purged from storage
+
+  @@index([userId])
+  @@map("documents")
+}
+
+/**
+ * ───────────────────────── Payments ─────────────────────────
+ */
+
+model Payment {
+  id                      String        @id @default(uuid())
+  projectId               String
+  project                 Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  clientId                String
+  client                  User          @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  provider                String        @default("stripe")
+  providerSessionId       String?       @unique
+  providerPaymentIntentId String?       @unique
+  amountCents             Int
+  currency                String        @default("usd")
+  status                  PaymentStatus @default(PENDING)
+  receiptUrl              String?
+  createdAt               DateTime      @default(now())
+  updatedAt               DateTime      @updatedAt
+
+  @@index([clientId])
+  @@index([projectId])
+  @@map("payments")
+}
+
+/**
+ * ───────────────────────── Audit & notifications ─────────────────────────
+ */
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  actorId    String? // user id, or "super-admin"
+  actorRole  String // CLIENT | TALENT | ADMIN | SYSTEM
+  action     String // e.g. "submission.approved", "certificate.revoked"
+  entityType String
+  entityId   String
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([actorId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+model Notification {
+  id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String
+  title     String
+  body      String
+  link      String?
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, readAt])
+  @@map("notifications")
+}
+
+/**
+ * ───────────────────────── Misc ─────────────────────────
+ */
 
 model ContactMessage {
   id        String   @id @default(uuid())
@@ -133,17 +427,21 @@ model ContactMessage {
   email     String
   subject   String?
   message   String
-  type      String   @default("contact") // contact, company_query
+  type      String   @default("contact") // contact, client_query
   isRead    Boolean  @default(false)
   createdAt DateTime @default(now())
 
   @@map("contact_messages")
 }
 
+/**
+ * ───────────────────────── Auth ─────────────────────────
+ */
+
 model Session {
   id        String    @id @default(uuid())
   tokenHash String    @unique
-  userId    String
+  userId    String // user id or "super-admin" (no FK on purpose)
   expiresAt DateTime
   revokedAt DateTime?
   createdAt DateTime  @default(now())
@@ -162,4 +460,16 @@ model PasswordResetToken {
 
   @@index([userId])
   @@map("password_reset_tokens")
+}
+
+model EmailVerificationToken {
+  id        String    @id @default(uuid())
+  tokenHash String    @unique
+  userId    String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@map("email_verification_tokens")
 }

@@ -1,63 +1,38 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getSession } from "@/lib/auth";
+import { requireRole } from "@/lib/auth";
 import { generateCertificatePdf } from "@/lib/pdf";
 
-export async function GET(
-  req: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const session = await getSession();
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+type Params = { params: Promise<{ id: string }> };
+
+/** GET /api/certificates/[id]/pdf — the recipient, the issuer or an admin downloads the PDF. */
+export async function GET(_req: Request, { params }: Params) {
+  const auth = await requireRole("CLIENT", "TALENT", "ADMIN");
+  if (auth instanceof NextResponse) return auth;
 
   const { id } = await params;
+  const certificate = await prisma.certificate.findFirst({ where: { OR: [{ id }, { certId: id }] } });
+  if (!certificate) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  // Find certificate
-  const certificate = await prisma.certificate.findFirst({
-    where: {
-      OR: [
-        { id },
-        { certId: id }
-      ]
-    },
-    include: { company: { select: { name: true } } }
-  });
-
-  if (!certificate) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
-  }
-
-  // Authorize: Only student who earned it, or company who issued it can download
-  if (session.role === "STUDENT" && certificate.studentEmail !== session.email) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  if (session.role === "COMPANY" && certificate.companyId !== session.userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const allowed =
+    auth.role === "ADMIN" ||
+    (auth.role === "TALENT" && certificate.talentId === auth.userId) ||
+    (auth.role === "CLIENT" && certificate.clientId === auth.userId);
+  if (!allowed) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   // A revoked certificate must not be reproduced as a clean PDF.
-  if (certificate.status === "Revoked") {
+  if (certificate.status === "REVOKED") {
     return NextResponse.json({ error: "This certificate has been revoked" }, { status: 410 });
   }
 
   try {
-    const pdfBuffer = await generateCertificatePdf({
-      certId: certificate.certId,
-      title: certificate.title,
-      studentName: certificate.studentName,
-      studentEmail: certificate.studentEmail,
-      issueDate: certificate.issueDate,
-      expiryDate: certificate.expiryDate,
-      companyName: certificate.company.name,
-    });
-
-    return new Response(new Uint8Array(pdfBuffer), {
+    const pdf = await generateCertificatePdf(certificate);
+    return new Response(new Uint8Array(pdf), {
       status: 200,
       headers: {
         "Content-Type": "application/pdf",
         "Content-Disposition": `attachment; filename="${certificate.certId}.pdf"`,
+        "Cache-Control": "private, no-store",
       },
     });
   } catch (error) {

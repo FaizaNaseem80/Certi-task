@@ -11,8 +11,8 @@ export default function LayoutWrapper({ children }: { children: React.ReactNode 
   // Define which paths should NOT render the public marketing Navbar and Footer
   const isAuthOrDashboard =
     pathname?.startsWith("/auth") ||
-    pathname?.startsWith("/student/dashboard") ||
-    pathname?.startsWith("/company/dashboard") ||
+    pathname?.startsWith("/talent/") ||
+    pathname?.startsWith("/client/") ||
     pathname?.startsWith("/admin/dashboard") ||
     pathname?.startsWith("/api") ||
     pathname?.startsWith("/certificates/");

@@ -14,7 +14,7 @@ export async function POST(req: Request) {
 
     if (!isString(name, 120) || !isEmail(email) || !isString(message, 10000) ||
       (subject !== undefined && subject !== null && subject !== "" && !isString(subject, 200)) ||
-      (type !== undefined && type !== "contact" && type !== "company_query")) {
+      (type !== undefined && type !== "contact" && type !== "client_query")) {
       return NextResponse.json(
         { error: "Name, email, and message are required." },
         { status: 400 }

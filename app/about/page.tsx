@@ -13,7 +13,7 @@ export default function AboutPage() {
       ),
     },
     {
-      title: "Professional Student Profiles",
+      title: "Public Talent Profiles",
       description: "Build an interactive, modular CV highlighting portfolio works, certifications, and grades verified directly by your educators.",
       icon: (
         <svg className="h-6 w-6 text-gold" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -22,8 +22,8 @@ export default function AboutPage() {
       ),
     },
     {
-      title: "Direct Company Connections",
-      description: "Communicate directly with corporate representatives from featured employers without recruiters playing gatekeeper.",
+      title: "Direct Client Connections",
+      description: "Work directly with the organization or individual who posted the project, with no recruiter in between.",
       icon: (
         <svg className="h-6 w-6 text-gold" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
@@ -51,8 +51,8 @@ export default function AboutPage() {
   ];
 
   const stats = [
-    { value: "25,000+", label: "Students Registered" },
-    { value: "150+", label: "Featured Companies" },
+    { value: "25,000+", label: "Talent registered" },
+    { value: "150+", label: "Clients" },
     { value: "45,000+", label: "Certificates Earned" },
     { value: "1,200+", label: "Active Opportunities" },
   ];
@@ -71,7 +71,7 @@ export default function AboutPage() {
             <span className="text-gold">Education and Career</span>
           </h1>
           <p className="text-paper/85 text-lg max-w-2xl mx-auto leading-relaxed font-sans">
-            We are dedicated to building a transparent platform where students can showcase verified credentials and directly access game-changing job opportunities.
+            We are building a transparent platform where talent can prove what they can do with verified work, and clients can get real projects done.
           </p>
         </div>
       </section>
@@ -89,10 +89,10 @@ export default function AboutPage() {
               </div>
               <h2 className="text-2xl font-extrabold text-navy">Our Mission</h2>
               <p className="text-ink/80 leading-relaxed">
-                To empower students by giving them full control over their professional credentials and linking them directly to verified, high-impact career opportunities. We believe hiring should be based on transparent, authenticated achievements, not subjective networks.
+                To give talent full control over credentials they actually earned, and to connect them directly to clients with real work. We believe hiring should be based on transparent, verifiable achievements, not who you know.
               </p>
               <p className="text-ink/80 leading-relaxed">
-                By partnering with colleges, certification authorities, and industries, we facilitate a merit-based pipeline where raw student talent can be easily searched and hired.
+                By verifying both sides, the client posting the work and the talent doing it, we make every certificate mean something.
               </p>
             </div>
 
@@ -106,7 +106,7 @@ export default function AboutPage() {
               </div>
               <h2 className="text-2xl font-extrabold text-navy">Our Vision</h2>
               <p className="text-ink/80 leading-relaxed">
-                To create a global digital ecosystem where every student’s achievements are instantly verifiable, portable, and valued. We envision a future where universities and employers share a unified language of skill mastery, making transition from classroom to boardroom frictionless.
+                A world where every piece of real work someone has done is instantly verifiable, portable and valued, whether they are a student, a freelancer or changing careers.
               </p>
               <p className="text-ink/80 leading-relaxed">
                 In this future, career opportunities are distributed equitably, based on what you have proven you can do, rather than who you know or where you reside.
@@ -124,7 +124,7 @@ export default function AboutPage() {
             <h2 className="text-xs font-bold text-gold tracking-widest uppercase">The CertiTask Advantage</h2>
             <h3 className="text-3xl sm:text-4xl font-extrabold text-paper tracking-tight">Why CertiTask?</h3>
             <p className="text-lg text-paper/75">
-              Traditional networks fail students. Here is how CertiTask changes the paradigm.
+              Traditional networks fail people without connections. Here is how CertiTask changes that.
             </p>
           </div>
 
@@ -163,14 +163,14 @@ export default function AboutPage() {
             Start Discovering Matches Today
           </h2>
           <p className="text-lg text-paper/80 max-w-xl mx-auto">
-            Ready to explore verified student profiles or find active company openings? Join CertiTask now.
+            Ready to do real work, or to get real work done? Join CertiTask now.
           </p>
           <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-4">
             <Button href="/auth/login" variant="gold" className="w-full sm:w-auto px-8 py-3.5">
-              Sign Up As Student
+              Sign up as talent
             </Button>
-            <Button href="/companies" variant="outline" className="w-full sm:w-auto px-8 py-3.5 border-paper text-paper hover:bg-paper hover:text-navy">
-              View Featured Companies
+            <Button href="/clients" variant="outline" className="w-full sm:w-auto px-8 py-3.5 border-paper text-paper hover:bg-paper hover:text-navy">
+              View clients
             </Button>
           </div>
         </div>

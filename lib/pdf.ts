@@ -1,4 +1,5 @@
 import { PDFDocument, PDFFont, StandardFonts, rgb, Color } from 'pdf-lib';
+import { CLIENT_TYPE_LABEL } from './enums';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { logoBase64 } from './logoBase64';
@@ -16,15 +17,21 @@ function hexToRgb(hex: string) {
   return rgb(r, g, b);
 }
 
-export async function generateCertificatePdf(certificate: {
+export interface PrintableCertificate {
   certId: string;
   title: string;
-  studentName: string;
-  studentEmail: string;
-  issueDate: string;
-  expiryDate: string;
-  companyName?: string;
-}): Promise<Buffer> {
+  recipientName: string;
+  issuerName: string;
+  issuerType: "INDIVIDUAL" | "ORGANIZATION";
+  skills: string[];
+  issuedAt: Date;
+}
+
+function formatDate(d: Date): string {
+  return d.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
+}
+
+export async function generateCertificatePdf(certificate: PrintableCertificate): Promise<Buffer> {
   const doc = await PDFDocument.create();
   
   // Create landscape document (A4 is 595.28 x 841.89 points, so landscape is 841.89 x 595.28)
@@ -104,10 +111,10 @@ export async function generateCertificatePdf(certificate: {
 
   // Student Name
   const nameY = 270;
-  drawCenteredText(certificate.studentName, fontTimesBoldItalic, 40, nameY, navyColor);
+  drawCenteredText(certificate.recipientName, fontTimesBoldItalic, 40, nameY, navyColor);
 
   // Decorative line under the name
-  const nameWidth = fontTimesBoldItalic.widthOfTextAtSize(certificate.studentName, 40);
+  const nameWidth = fontTimesBoldItalic.widthOfTextAtSize(certificate.recipientName, 40);
   page.drawLine({
     start: { x: (width - nameWidth) / 2 - 30, y: height - nameY - 10 },
     end: { x: (width + nameWidth) / 2 + 30, y: height - nameY - 10 },
@@ -116,20 +123,28 @@ export async function generateCertificatePdf(certificate: {
   });
 
   // Description
-  drawCenteredText('has successfully completed the internship/project program:', fontHelvetica, 14, 320, grayColor);
+  drawCenteredText('has successfully completed the project', fontHelvetica, 14, 320, grayColor);
   drawCenteredText(certificate.title, fontHelveticaBold, 22, 355, navyColor);
-  drawCenteredText(`sponsored by ${certificate.companyName || 'CertiTask Enterprise'}`, fontHelvetica, 14, 390, grayColor);
+  drawCenteredText(
+    `for ${certificate.issuerName} (Verified ${CLIENT_TYPE_LABEL[certificate.issuerType]})`,
+    fontHelvetica, 14, 390, grayColor
+  );
+  if (certificate.skills.length > 0) {
+    const skillsLine = `Skills demonstrated: ${certificate.skills.slice(0, 8).join(' · ')}`;
+    drawCenteredText(skillsLine, fontHelveticaOblique, 11, 415, lightGrayColor);
+  }
 
   // Footer sections (Issue Date, Certificate ID, Signature)
   const bottomY = height - 480;
 
   // Left: Date
   page.drawText('Issue Date:', { x: 100, y: bottomY, size: 11, font: fontHelveticaBold, color: navyColor });
-  page.drawText(certificate.issueDate, { x: 170, y: bottomY, size: 11, font: fontHelvetica, color: grayColor });
+  page.drawText(formatDate(certificate.issuedAt), { x: 170, y: bottomY, size: 11, font: fontHelvetica, color: grayColor });
 
   // Center: Certificate ID
   drawCenteredText(`ID: ${certificate.certId}`, fontHelveticaBold, 14, 480, goldColor);
-  drawCenteredText('Verify at: certitask.com/verify', fontHelvetica, 10, 500, lightGrayColor);
+  const verifyBase = (process.env.APP_URL || 'https://certitask.app').replace(/^https?:\/\//, '').replace(/\/$/, '');
+  drawCenteredText(`Verify at: ${verifyBase}/verify`, fontHelvetica, 10, 500, lightGrayColor);
 
   if (signatureImage) {
     const signatureScale = Math.min(150 / signatureImage.width, 65 / signatureImage.height);

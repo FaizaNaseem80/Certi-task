@@ -8,7 +8,7 @@ export const Footer = () => {
   const links = [
     { name: "Home", href: "/" },
     { name: "How It Works", href: "/#how-it-works" },
-    { name: "Featured Companies", href: "/companies" },
+    { name: "Clients", href: "/clients" },
     { name: "Browse Projects", href: "/projects" },
     { name: "Verify Certificate", href: "/verify" },
     { name: "Contact", href: "/contact" },
@@ -30,7 +30,7 @@ export const Footer = () => {
               Real Projects. Real Proof.
             </p>
             <p className="text-paper/70 text-sm max-w-sm leading-relaxed mb-6">
-              CertiTask is a public platform connecting ambitious students with corporate project engagements to produce independently verifiable digital proof of skill.
+              CertiTask connects clients who have real work with talent who can do it, and turns approved work into independently verifiable certificates.
             </p>
             {/* Social Icons Placeholders */}
             <div className="flex space-x-4">

@@ -3,42 +3,50 @@
 import React, { useState } from "react";
 import { Button } from "@/components/Button";
 
-type CertificateStatus = "Verified" | "Revoked" | "Disputed";
+type CertificateStatus = "VERIFIED" | "REVOKED" | "DISPUTED";
 
 interface Certificate {
   certId: string;
-  studentName: string;
-  companyName: string;
+  recipientName: string;
+  issuerName: string;
+  issuerType: "INDIVIDUAL" | "ORGANIZATION";
   projectTitle: string;
-  issueDate: string;
+  skills: string[];
+  issuedAt: string;
   status: CertificateStatus;
+  statusReason: string | null;
+  signatureValid: boolean;
 }
 
 interface VerifyResponse {
   certificate: {
     certId: string;
     title: string;
-    studentName: string;
-    issueDate: string;
+    recipientName: string;
+    issuerName: string;
+    issuerType: "INDIVIDUAL" | "ORGANIZATION";
+    skills: string[];
+    issuedAt: string;
     status: string;
-    company: { name: string };
+    statusReason: string | null;
+    signatureValid: boolean;
   };
 }
 
 const STATUS_STYLES: Record<CertificateStatus, { banner: string; icon: string; label: string; title: string }> = {
-  Verified: {
+  VERIFIED: {
     banner: "bg-green-50 border-green-200",
     icon: "bg-green-100 text-green-600 border-green-200",
     label: "bg-green-100 text-green-800 border-green-200",
     title: "This certificate is genuine",
   },
-  Revoked: {
+  REVOKED: {
     banner: "bg-red-50 border-red-200",
     icon: "bg-red-100 text-red-600 border-red-200",
     label: "bg-red-100 text-red-800 border-red-200",
     title: "This certificate has been revoked by the issuer",
   },
-  Disputed: {
+  DISPUTED: {
     banner: "bg-amber-50 border-amber-200",
     icon: "bg-amber-100 text-amber-700 border-amber-200",
     label: "bg-amber-100 text-amber-800 border-amber-200",
@@ -47,11 +55,12 @@ const STATUS_STYLES: Record<CertificateStatus, { banner: string; icon: string; l
 };
 
 function toStatus(value: string): CertificateStatus {
-  return value === "Revoked" || value === "Disputed" ? value : "Verified";
+  return value === "REVOKED" || value === "DISPUTED" ? value : "VERIFIED";
 }
 
 export default function VerifyPage() {
-  const [certId, setCertId] = useState("");
+  // Prefilled from /verify?id=CERT-… (linked from certificate pages and QR codes).
+  const [certId, setCertId] = useState(() => (typeof window === "undefined" ? "" : new URLSearchParams(window.location.search).get("id") ?? ""));
   const [result, setResult] = useState<Certificate | null>(null);
   const [searched, setSearched] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -74,11 +83,15 @@ export default function VerifyPage() {
         const c = data.certificate;
         setResult({
           certId: c.certId,
-          studentName: c.studentName,
-          companyName: c.company.name,
+          recipientName: c.recipientName,
+          issuerName: c.issuerName,
+          issuerType: c.issuerType,
           projectTitle: c.title,
-          issueDate: c.issueDate,
+          skills: c.skills ?? [],
+          issuedAt: new Date(c.issuedAt).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }),
           status: toStatus(c.status),
+          statusReason: c.statusReason ?? null,
+          signatureValid: c.signatureValid !== false,
         });
       } else {
         setResult(null);
@@ -130,7 +143,7 @@ export default function VerifyPage() {
                     id="certificateId"
                     value={certId}
                     onChange={(e) => setCertId(e.target.value)}
-                    placeholder="CERT-XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX"
+                    placeholder="CERT-XXXX-XXXX-XXXX"
                     className="block w-full px-4 py-3 bg-paper border border-navy/15 rounded-lg text-ink font-sans text-sm focus:outline-hidden focus:ring-2 focus:ring-gold/50 focus:border-gold transition-colors"
                   />
                   <Button type="submit" variant="primary" className="py-3 px-8 shrink-0" disabled={loading}>
@@ -153,7 +166,7 @@ export default function VerifyPage() {
                   <div className={`flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border rounded-lg ${STATUS_STYLES[result.status].banner}`}>
                     <div className="flex items-center gap-3">
                       <div className={`h-10 w-10 rounded-full flex items-center justify-center border shadow-xs shrink-0 ${STATUS_STYLES[result.status].icon}`}>
-                        {result.status === "Verified" ? (
+                        {result.status === "VERIFIED" ? (
                           <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                           </svg>
@@ -169,7 +182,7 @@ export default function VerifyPage() {
                       </div>
                     </div>
                     <span className={`px-3 py-1 border rounded-full text-xs font-bold uppercase shrink-0 ${STATUS_STYLES[result.status].label}`}>
-                      {result.status}
+                      {result.status.toLowerCase()}
                     </span>
                   </div>
 
@@ -177,11 +190,12 @@ export default function VerifyPage() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-4 border-t border-navy/5">
                     <div>
                       <p className="text-[10px] font-bold text-navy/60 uppercase tracking-wide">Recipient</p>
-                      <p className="text-base font-bold text-navy mt-1">{result.studentName}</p>
+                      <p className="text-base font-bold text-navy mt-1">{result.recipientName}</p>
                     </div>
                     <div>
                       <p className="text-[10px] font-bold text-navy/60 uppercase tracking-wide">Issued by</p>
-                      <p className="text-base font-bold text-navy mt-1">{result.companyName}</p>
+                      <p className="text-base font-bold text-navy mt-1">{result.issuerName}</p>
+                      <p className="text-xs text-ink/60 mt-0.5">{result.issuerType === "ORGANIZATION" ? "Organization" : "Individual"}</p>
                     </div>
                     <div>
                       <p className="text-[10px] font-bold text-navy/60 uppercase tracking-wide">Project</p>
@@ -189,8 +203,26 @@ export default function VerifyPage() {
                     </div>
                     <div>
                       <p className="text-[10px] font-bold text-navy/60 uppercase tracking-wide">Date issued</p>
-                      <p className="text-sm font-semibold text-ink mt-1">{result.issueDate}</p>
+                      <p className="text-sm font-semibold text-ink mt-1">{result.issuedAt}</p>
                     </div>
+                    {result.skills.length > 0 && (
+                      <div className="sm:col-span-2">
+                        <p className="text-[10px] font-bold text-navy/60 uppercase tracking-wide mb-1">Skills demonstrated</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {result.skills.map(sk => <span key={sk} className="px-2 py-0.5 rounded bg-navy/5 text-navy text-[11px] font-semibold border border-navy/10">{sk}</span>)}
+                        </div>
+                      </div>
+                    )}
+                    {result.status !== "VERIFIED" && result.statusReason && (
+                      <div className="sm:col-span-2 text-sm text-red-800 bg-red-50 border border-red-200 rounded-lg p-3">
+                        <span className="font-bold">Reason given by the issuer:</span> {result.statusReason}
+                      </div>
+                    )}
+                    {!result.signatureValid && (
+                      <div className="sm:col-span-2 text-sm text-red-800 bg-red-50 border border-red-200 rounded-lg p-3">
+                        <span className="font-bold">Integrity check failed.</span> The stored record does not match its signature. Treat this certificate as unverified and contact support.
+                      </div>
+                    )}
                   </div>
 
                   {/* Certificate ID */}

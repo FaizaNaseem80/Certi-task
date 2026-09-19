@@ -3,12 +3,27 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { PROJECT_STATUSES, PROJECT_STATUS_LABEL, statusLabel } from "@/lib/enums";
+
+function UserStatus({ clientType, verificationStatus, suspendedAt }: { clientType: string | null; verificationStatus: string; suspendedAt: string | null }) {
+  return (
+    <div className="flex flex-wrap gap-1">
+      {clientType && <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-gray-100 text-gray-700">{clientType === "ORGANIZATION" ? "Org" : "Individual"}</span>}
+      <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${verificationStatus === "VERIFIED" ? "bg-green-100 text-green-700" : verificationStatus === "PENDING_REVIEW" ? "bg-amber-100 text-amber-700" : "bg-gray-100 text-gray-500"}`}>
+        {statusLabel(verificationStatus)}
+      </span>
+      {suspendedAt && <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-red-100 text-red-700">Suspended</span>}
+    </div>
+  );
+}
 
 // ── Types ──
 interface Overview {
-  companies: number;
-  students: number;
+  clients: number;
+  talents: number;
   projects: number;
+  activeProjects: number;
+  pendingVerifications: number;
   applications: number;
   submissionsThisWeek: number;
   certificatesIssued: number;
@@ -17,25 +32,29 @@ interface Overview {
   totalMessages: number;
 }
 
-interface Company {
+interface Client {
   id: string;
   name: string;
   email: string;
-  domain: string | null;
+  clientType: "INDIVIDUAL" | "ORGANIZATION" | null;
+  verificationStatus: string;
+  emailVerifiedAt: string | null;
+  suspendedAt: string | null;
   website: string | null;
   createdAt: string;
-  isVerified: boolean;
-  _count: { projects: number };
+  _count: { projectsPosted: number; certificatesIssued: number };
 }
 
-interface Student {
+interface Talent {
   id: string;
   name: string;
   email: string;
-  bio: string | null;
+  verificationStatus: string;
+  emailVerifiedAt: string | null;
+  suspendedAt: string | null;
+  universityName: string | null;
   createdAt: string;
-  isVerified: boolean;
-  _count: { applications: number; submissions: number };
+  _count: { teamMemberships: number; certificatesEarned: number };
 }
 
 interface Project {
@@ -44,7 +63,7 @@ interface Project {
   description: string;
   status: string;
   createdAt: string;
-  company: { name: string; email: string };
+  client: { id: string; name: string; email: string; clientType: string | null };
   _count: { applications: number; submissions: number; certificates: number };
 }
 
@@ -59,7 +78,7 @@ interface Message {
   createdAt: string;
 }
 
-type Tab = "overview" | "companies" | "students" | "projects" | "messages";
+type Tab = "overview" | "clients" | "talents" | "projects" | "messages";
 
 export default function AdminDashboard() {
   const router = useRouter();
@@ -67,8 +86,8 @@ export default function AdminDashboard() {
 
   // Data states
   const [overview, setOverview] = useState<Overview | null>(null);
-  const [companies, setCompanies] = useState<Company[]>([]);
-  const [students, setStudents] = useState<Student[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
+  const [talents, setTalents] = useState<Talent[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
 
@@ -79,13 +98,13 @@ export default function AdminDashboard() {
   const [actionSuccess, setActionSuccess] = useState("");
 
   // Edit states
-  const [editingUser, setEditingUser] = useState<Company | Student | null>(null);
+  const [editingUser, setEditingUser] = useState<Client | Talent | null>(null);
   const [editUserName, setEditUserName] = useState("");
-  const [editUserVerified, setEditUserVerified] = useState(false);
+  const [editUserSuspended, setEditUserSuspended] = useState(false);
 
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [editProjectTitle, setEditProjectTitle] = useState("");
-  const [editProjectStatus, setEditProjectStatus] = useState("Active");
+  const [editProjectStatus, setEditProjectStatus] = useState("ACTIVE");
 
   const fetchAll = useCallback(async function fetchAll() {
     setLoading(true);
@@ -115,8 +134,8 @@ export default function AdminDashboard() {
       const msgData = await msgRes.json();
 
       setOverview(ovData.counts);
-      setCompanies(usData.companies || []);
-      setStudents(usData.students || []);
+      setClients(usData.clients || []);
+      setTalents(usData.talents || []);
       setProjects(projData.projects || []);
       setMessages(msgData.messages || []);
     } catch {
@@ -155,14 +174,14 @@ export default function AdminDashboard() {
 
   // ── CRUD Actions ──
 
-  async function deleteUser(id: string, type: "company" | "student") {
-    if (!window.confirm(`Are you sure you want to delete this ${type}? This action cannot be undone.`)) return;
+  async function deleteUser(id: string, type: "client" | "talent") {
+    if (!window.confirm(`Delete this ${type} account permanently? Accounts holding certificates cannot be deleted; suspend them instead.`)) return;
     setIsActionLoading(true);
     try {
       const res = await fetch(`/api/admin/users/${id}`, { method: "DELETE" });
       if (res.ok) {
-        if (type === "company") setCompanies((prev) => prev.filter((c) => c.id !== id));
-        else setStudents((prev) => prev.filter((s) => s.id !== id));
+        if (type === "client") setClients((prev) => prev.filter((c) => c.id !== id));
+        else setTalents((prev) => prev.filter((s) => s.id !== id));
         showSuccess(`${type} deleted successfully.`);
       } else {
         const data = await res.json();
@@ -182,12 +201,13 @@ export default function AdminDashboard() {
       const res = await fetch(`/api/admin/users/${editingUser.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: editUserName, isVerified: editUserVerified }),
+        body: JSON.stringify({ name: editUserName, suspended: editUserSuspended }),
       });
       if (res.ok) {
         // Update local state
-        setCompanies((prev) => prev.map((c) => c.id === editingUser.id ? { ...c, name: editUserName, isVerified: editUserVerified } : c));
-        setStudents((prev) => prev.map((s) => s.id === editingUser.id ? { ...s, name: editUserName, isVerified: editUserVerified } : s));
+        const suspendedAt = editUserSuspended ? new Date().toISOString() : null;
+        setClients((prev) => prev.map((c) => c.id === editingUser.id ? { ...c, name: editUserName, suspendedAt } : c));
+        setTalents((prev) => prev.map((s) => s.id === editingUser.id ? { ...s, name: editUserName, suspendedAt } : s));
         setEditingUser(null);
         showSuccess("User updated successfully.");
       } else {
@@ -272,8 +292,8 @@ export default function AdminDashboard() {
 
   const sidebarLinks = [
     { id: "overview", label: "Dashboard", icon: "📊" },
-    { id: "companies", label: "Companies", icon: "🏢" },
-    { id: "students", label: "Students", icon: "🎓" },
+    { id: "clients", label: "Clients", icon: "🏢" },
+    { id: "talents", label: "Talent", icon: "🎓" },
     { id: "projects", label: "Projects", icon: "🚀" },
     { id: "messages", label: "Messages", icon: "✉️" },
   ];
@@ -365,8 +385,9 @@ export default function AdminDashboard() {
             <div className="space-y-6">
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
                 {[
-                  { label: "Companies", value: overview.companies, color: "bg-blue-50 text-blue-700 border-blue-100" },
-                  { label: "Students", value: overview.students, color: "bg-green-50 text-green-700 border-green-100" },
+                  { label: "Clients", value: overview.clients, color: "bg-blue-50 text-blue-700 border-blue-100" },
+                  { label: "Talent", value: overview.talents, color: "bg-green-50 text-green-700 border-green-100" },
+                  { label: "Pending verifications", value: overview.pendingVerifications, color: "bg-amber-50 text-amber-700 border-amber-100" },
                   { label: "Projects", value: overview.projects, color: "bg-purple-50 text-purple-700 border-purple-100" },
                   { label: "Applications", value: overview.applications, color: "bg-orange-50 text-orange-700 border-orange-100" },
                   { label: "New Submissions", value: overview.submissionsThisWeek, color: "bg-cyan-50 text-cyan-700 border-cyan-100" },
@@ -382,7 +403,7 @@ export default function AdminDashboard() {
           )}
 
           {/* ── COMPANIES ── */}
-          {activeTab === "companies" && (
+          {activeTab === "clients" && (
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-sm text-left">
@@ -390,13 +411,14 @@ export default function AdminDashboard() {
                     <tr>
                       <th className="px-6 py-4">Name</th>
                       <th className="px-6 py-4">Email</th>
+                      <th className="px-6 py-4">Type / Status</th>
                       <th className="px-6 py-4">Projects</th>
                       <th className="px-6 py-4">Joined</th>
                       <th className="px-6 py-4 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {companies.map((c) => (
+                    {clients.map((c) => (
                       <tr key={c.id} className="hover:bg-gray-50/50 transition-colors">
                         <td className="px-6 py-4 font-medium text-navy flex items-center gap-3">
                           <div className="w-8 h-8 rounded-full bg-navy text-gold flex items-center justify-center font-bold text-xs">
@@ -405,19 +427,20 @@ export default function AdminDashboard() {
                           {c.name}
                         </td>
                         <td className="px-6 py-4 text-gray-600">{c.email}</td>
-                        <td className="px-6 py-4"><span className="bg-gray-100 text-gray-700 px-2.5 py-1 rounded-md font-medium text-xs">{c._count.projects}</span></td>
+                        <td className="px-6 py-4"><UserStatus clientType={c.clientType} verificationStatus={c.verificationStatus} suspendedAt={c.suspendedAt} /></td>
+                        <td className="px-6 py-4"><span className="bg-gray-100 text-gray-700 px-2.5 py-1 rounded-md font-medium text-xs">{c._count.projectsPosted} · {c._count.certificatesIssued} certs</span></td>
                         <td className="px-6 py-4 text-gray-500 whitespace-nowrap">{formatDate(c.createdAt)}</td>
                         <td className="px-6 py-4 text-right space-x-2 whitespace-nowrap">
                           <button
                             disabled={isActionLoading}
-                            onClick={() => { setEditingUser(c); setEditUserName(c.name); setEditUserVerified(!!c.isVerified); }}
+                            onClick={() => { setEditingUser(c); setEditUserName(c.name); setEditUserSuspended(!!c.suspendedAt); }}
                             className="text-blue-600 hover:text-blue-800 font-medium disabled:opacity-50"
                           >
                             Edit
                           </button>
                           <button
                             disabled={isActionLoading}
-                            onClick={() => deleteUser(c.id, "company")}
+                            onClick={() => deleteUser(c.id, "client")}
                             className="text-red-600 hover:text-red-800 font-medium disabled:opacity-50"
                           >
                             Delete
@@ -425,8 +448,8 @@ export default function AdminDashboard() {
                         </td>
                       </tr>
                     ))}
-                    {companies.length === 0 && (
-                      <tr><td colSpan={5} className="px-6 py-8 text-center text-gray-500">No companies found.</td></tr>
+                    {clients.length === 0 && (
+                      <tr><td colSpan={6} className="px-6 py-8 text-center text-gray-500">No clients yet.</td></tr>
                     )}
                   </tbody>
                 </table>
@@ -434,8 +457,8 @@ export default function AdminDashboard() {
             </div>
           )}
 
-          {/* ── STUDENTS ── */}
-          {activeTab === "students" && (
+          {/* ── TALENT ── */}
+          {activeTab === "talents" && (
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-sm text-left">
@@ -443,13 +466,14 @@ export default function AdminDashboard() {
                     <tr>
                       <th className="px-6 py-4">Name</th>
                       <th className="px-6 py-4">Email</th>
-                      <th className="px-6 py-4">Apps / Subs</th>
+                      <th className="px-6 py-4">Status</th>
+                      <th className="px-6 py-4">Teams / Certs</th>
                       <th className="px-6 py-4">Joined</th>
                       <th className="px-6 py-4 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {students.map((s) => (
+                    {talents.map((s) => (
                       <tr key={s.id} className="hover:bg-gray-50/50 transition-colors">
                         <td className="px-6 py-4 font-medium text-navy flex items-center gap-3">
                           <div className="w-8 h-8 rounded-full bg-green-600 text-white flex items-center justify-center font-bold text-xs">
@@ -458,24 +482,25 @@ export default function AdminDashboard() {
                           {s.name}
                         </td>
                         <td className="px-6 py-4 text-gray-600">{s.email}</td>
+                        <td className="px-6 py-4"><UserStatus clientType={null} verificationStatus={s.verificationStatus} suspendedAt={s.suspendedAt} /></td>
                         <td className="px-6 py-4">
                           <div className="flex gap-2">
-                            <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded text-xs font-bold">{s._count.applications}</span>
-                            <span className="bg-purple-50 text-purple-700 px-2 py-0.5 rounded text-xs font-bold">{s._count.submissions}</span>
+                            <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded text-xs font-bold">{s._count.teamMemberships}</span>
+                            <span className="bg-green-50 text-green-700 px-2 py-0.5 rounded text-xs font-bold">{s._count.certificatesEarned}</span>
                           </div>
                         </td>
                         <td className="px-6 py-4 text-gray-500 whitespace-nowrap">{formatDate(s.createdAt)}</td>
                         <td className="px-6 py-4 text-right space-x-2 whitespace-nowrap">
                           <button
                             disabled={isActionLoading}
-                            onClick={() => { setEditingUser(s); setEditUserName(s.name); setEditUserVerified(!!s.isVerified); }}
+                            onClick={() => { setEditingUser(s); setEditUserName(s.name); setEditUserSuspended(!!s.suspendedAt); }}
                             className="text-blue-600 hover:text-blue-800 font-medium disabled:opacity-50"
                           >
                             Edit
                           </button>
                           <button
                             disabled={isActionLoading}
-                            onClick={() => deleteUser(s.id, "student")}
+                            onClick={() => deleteUser(s.id, "talent")}
                             className="text-red-600 hover:text-red-800 font-medium disabled:opacity-50"
                           >
                             Delete
@@ -483,8 +508,8 @@ export default function AdminDashboard() {
                         </td>
                       </tr>
                     ))}
-                    {students.length === 0 && (
-                      <tr><td colSpan={5} className="px-6 py-8 text-center text-gray-500">No students found.</td></tr>
+                    {talents.length === 0 && (
+                      <tr><td colSpan={6} className="px-6 py-8 text-center text-gray-500">No talent accounts yet.</td></tr>
                     )}
                   </tbody>
                 </table>
@@ -500,7 +525,7 @@ export default function AdminDashboard() {
                   <thead className="bg-gray-50 text-gray-600 font-semibold border-b">
                     <tr>
                       <th className="px-6 py-4">Project Title</th>
-                      <th className="px-6 py-4">Company</th>
+                      <th className="px-6 py-4">Client</th>
                       <th className="px-6 py-4">Status</th>
                       <th className="px-6 py-4 text-right">Actions</th>
                     </tr>
@@ -513,15 +538,15 @@ export default function AdminDashboard() {
                           <p className="text-xs text-gray-400 mt-1">Apps: {p._count.applications} | Subs: {p._count.submissions}</p>
                         </td>
                         <td className="px-6 py-4 text-gray-600">
-                          <p className="font-medium">{p.company.name}</p>
+                          <p className="font-medium">{p.client.name}</p>
                         </td>
                         <td className="px-6 py-4">
                           <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
-                            p.status === "Active" ? "bg-green-100 text-green-700" :
-                            p.status === "Paused" ? "bg-yellow-100 text-yellow-700" :
+                            p.status === "ACTIVE" ? "bg-green-100 text-green-700" :
+                            p.status === "PAUSED" || p.status === "PENDING_PAYMENT" ? "bg-yellow-100 text-yellow-700" :
                             "bg-gray-100 text-gray-700"
                           }`}>
-                            {p.status}
+                            {statusLabel(p.status)}
                           </span>
                         </td>
                         <td className="px-6 py-4 text-right space-x-2 whitespace-nowrap">
@@ -598,12 +623,12 @@ export default function AdminDashboard() {
               <div className="flex items-center gap-2">
                 <input
                   type="checkbox"
-                  id="verifyUser"
-                  checked={editUserVerified}
-                  onChange={(e) => setEditUserVerified(e.target.checked)}
-                  className="w-4 h-4 text-navy rounded border-gray-300 focus:ring-navy"
+                  id="suspendUser"
+                  checked={editUserSuspended}
+                  onChange={(e) => setEditUserSuspended(e.target.checked)}
+                  className="w-4 h-4 text-red-600 rounded border-gray-300 focus:ring-red-500"
                 />
-                <label htmlFor="verifyUser" className="text-sm font-medium text-gray-700">User is Verified</label>
+                <label htmlFor="suspendUser" className="text-sm font-medium text-gray-700">Suspend this account (blocks sign-in immediately)</label>
               </div>
             </div>
             <div className="p-4 bg-gray-50 border-t flex justify-end gap-2">
@@ -640,9 +665,7 @@ export default function AdminDashboard() {
                   onChange={(e) => setEditProjectStatus(e.target.value)}
                   className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-navy outline-none"
                 >
-                  <option value="Active">Active</option>
-                  <option value="Paused">Paused</option>
-                  <option value="Closed">Closed</option>
+                  {PROJECT_STATUSES.map(st => <option key={st} value={st}>{PROJECT_STATUS_LABEL[st]}</option>)}
                 </select>
               </div>
             </div>

@@ -1,6 +1,16 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Old role URLs from before the Client/Talent rename.
+  async redirects() {
+    return [
+      { source: "/company/:path*", destination: "/client/:path*", permanent: true },
+      { source: "/student/:path*", destination: "/talent/:path*", permanent: true },
+      { source: "/companies", destination: "/clients", permanent: true },
+      { source: "/companies/:id", destination: "/clients/:id", permanent: true },
+      { source: "/students/:id", destination: "/talents/:id", permanent: true },
+    ];
+  },
   async headers() {
     const scriptSource = process.env.NODE_ENV === "development"
       ? "script-src 'self' 'unsafe-inline' 'unsafe-eval'"

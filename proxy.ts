@@ -25,8 +25,8 @@ export async function proxy(req: NextRequest) {
 
   const isLoginRoute = matchesPath(pathname, "/auth/login");
 
-  const isCompanyRoute = matchesPath(pathname, "/company");
-  const isStudentRoute = matchesPath(pathname, "/student");
+  const isClientRoute = matchesPath(pathname, "/client");
+  const isTalentRoute = matchesPath(pathname, "/talent");
   const isAdminRoute = matchesPath(pathname, "/admin") && !matchesPath(pathname, "/admin/login");
 
   // Redirect exactly /admin to /admin/dashboard to avoid 404s
@@ -48,7 +48,7 @@ export async function proxy(req: NextRequest) {
       response.headers.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
       return response;
     }
-    if (isCompanyRoute || isStudentRoute) {
+    if (isClientRoute || isTalentRoute) {
       const response = NextResponse.redirect(new URL("/auth/login", req.url));
       response.headers.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
       return response;
@@ -57,9 +57,9 @@ export async function proxy(req: NextRequest) {
 
   /* 2. Authenticated user visiting auth pages -> redirect to proper dashboard */
   if (sessionPayload && isLoginRoute) {
-    let dest = "/student/dashboard";
+    let dest = "/talent/dashboard";
     if (sessionPayload.role === "ADMIN") dest = "/admin/dashboard";
-    else if (sessionPayload.role === "COMPANY") dest = "/company/dashboard";
+    else if (sessionPayload.role === "CLIENT") dest = "/client/dashboard";
 
     const response = NextResponse.redirect(new URL(dest, req.url));
     response.headers.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
@@ -70,22 +70,22 @@ export async function proxy(req: NextRequest) {
   if (sessionPayload) {
     const role = sessionPayload.role;
 
-    if (isCompanyRoute && role !== "COMPANY") {
-      const dest = role === "STUDENT" ? "/student/dashboard" : "/admin/dashboard";
+    if (isClientRoute && role !== "CLIENT") {
+      const dest = role === "TALENT" ? "/talent/dashboard" : "/admin/dashboard";
       const response = NextResponse.redirect(new URL(dest, req.url));
       response.headers.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
       return response;
     }
 
-    if (isStudentRoute && role !== "STUDENT") {
-      const dest = role === "COMPANY" ? "/company/dashboard" : "/admin/dashboard";
+    if (isTalentRoute && role !== "TALENT") {
+      const dest = role === "CLIENT" ? "/client/dashboard" : "/admin/dashboard";
       const response = NextResponse.redirect(new URL(dest, req.url));
       response.headers.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
       return response;
     }
 
     if (isAdminRoute && role !== "ADMIN") {
-      const dest = role === "STUDENT" ? "/student/dashboard" : "/company/dashboard";
+      const dest = role === "TALENT" ? "/talent/dashboard" : "/client/dashboard";
       const response = NextResponse.redirect(new URL(dest, req.url));
       response.headers.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
       return response;
@@ -94,7 +94,7 @@ export async function proxy(req: NextRequest) {
 
   /* 4. Attach no-store anti-caching headers to prevent back-button caching of protected pages */
   const response = NextResponse.next();
-  if (isCompanyRoute || isStudentRoute || isAdminRoute) {
+  if (isClientRoute || isTalentRoute || isAdminRoute) {
     response.headers.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
     response.headers.set("Pragma", "no-cache");
     response.headers.set("Expires", "0");

@@ -7,36 +7,27 @@ export async function GET() {
   if (authorization instanceof NextResponse) return authorization;
 
   try {
-    const companies = await prisma.user.findMany({
-      where: { role: "COMPANY" },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        domain: true,
-        website: true,
-        isVerified: true,
-        createdAt: true,
-        _count: { select: { projects: true } },
-      },
-      orderBy: { createdAt: "desc" },
-    });
-
-    const students = await prisma.user.findMany({
-      where: { role: "STUDENT" },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        bio: true,
-        isVerified: true,
-        createdAt: true,
-        _count: { select: { applications: true, submissions: true } },
-      },
-      orderBy: { createdAt: "desc" },
-    });
-
-    return NextResponse.json({ companies, students });
+    const [clients, talents] = await Promise.all([
+      prisma.user.findMany({
+        where: { role: "CLIENT" },
+        select: {
+          id: true, name: true, email: true, clientType: true, verificationStatus: true, emailVerifiedAt: true,
+          suspendedAt: true, website: true, createdAt: true,
+          _count: { select: { projectsPosted: true, certificatesIssued: true } },
+        },
+        orderBy: { createdAt: "desc" },
+      }),
+      prisma.user.findMany({
+        where: { role: "TALENT" },
+        select: {
+          id: true, name: true, email: true, verificationStatus: true, emailVerifiedAt: true, suspendedAt: true,
+          universityName: true, createdAt: true,
+          _count: { select: { teamMemberships: true, certificatesEarned: true } },
+        },
+        orderBy: { createdAt: "desc" },
+      }),
+    ]);
+    return NextResponse.json({ clients, talents });
   } catch (error) {
     console.error("Admin users error:", error);
     return NextResponse.json({ error: "Failed to fetch users" }, { status: 500 });

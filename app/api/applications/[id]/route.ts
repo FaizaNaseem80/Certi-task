@@ -1,46 +1,64 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getSession } from "@/lib/auth";
+import { requireRole } from "@/lib/auth";
+import { applicationInclude } from "@/lib/queries";
+import { audit } from "@/lib/audit";
 
-export async function PATCH(
-  req: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const session = await getSession();
-  if (!session || session.role !== "COMPANY") {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+type Params = { params: Promise<{ id: string }> };
+
+const CLIENT_DECISIONS = ["SHORTLISTED", "SELECTED", "REJECTED"] as const;
+
+/**
+ * PATCH /api/applications/[id]
+ * - Client (project owner): SHORTLISTED | SELECTED | REJECTED.
+ * - Talent (team lead): WITHDRAWN, only while still pending/shortlisted.
+ */
+export async function PATCH(req: Request, { params }: Params) {
+  const auth = await requireRole("CLIENT", "TALENT");
+  if (auth instanceof NextResponse) return auth;
 
   try {
     const { id } = await params;
     const { status } = await req.json();
 
-    if (!['Pending', 'Shortlisted', 'Selected', 'Rejected'].includes(status)) {
-      return NextResponse.json({ error: "Status is required" }, { status: 400 });
-    }
-
-    // Verify application belongs to one of company's projects
-    const application = await prisma.application.findFirst({
-      where: {
-        id,
-        project: {
-          companyId: session.userId,
-        },
-      },
+    const application = await prisma.application.findUnique({
+      where: { id },
+      include: { project: { select: { clientId: true, teamCap: true } }, team: { select: { leadId: true } } },
     });
+    if (!application) return NextResponse.json({ error: "Application not found" }, { status: 404 });
 
-    if (!application) {
-      return NextResponse.json({ error: "Application not found or unauthorized" }, { status: 404 });
+    if (auth.role === "CLIENT") {
+      if (application.project.clientId !== auth.userId) {
+        return NextResponse.json({ error: "Application not found" }, { status: 404 });
+      }
+      if (!CLIENT_DECISIONS.includes(status)) {
+        return NextResponse.json({ error: "Status must be SHORTLISTED, SELECTED or REJECTED" }, { status: 400 });
+      }
+      if (application.status === "WITHDRAWN") {
+        return NextResponse.json({ error: "This application was withdrawn by the applicant" }, { status: 409 });
+      }
+    } else {
+      if (application.team.leadId !== auth.userId) {
+        return NextResponse.json({ error: "Only the team lead can withdraw an application" }, { status: 403 });
+      }
+      if (status !== "WITHDRAWN") {
+        return NextResponse.json({ error: "Applicants can only withdraw" }, { status: 400 });
+      }
+      if (!["PENDING", "SHORTLISTED"].includes(application.status)) {
+        return NextResponse.json({ error: "This application can no longer be withdrawn" }, { status: 409 });
+      }
     }
 
     const updated = await prisma.application.update({
       where: { id },
-      data: { status },
+      data: { status, reviewedAt: auth.role === "CLIENT" ? new Date() : undefined },
+      include: applicationInclude,
     });
+    await audit(auth, "application.status_changed", "application", id, { from: application.status, to: status });
 
     return NextResponse.json({ success: true, application: updated });
   } catch (error) {
     console.error("Update application status error:", error);
-    return NextResponse.json({ error: "Failed to update application status" }, { status: 500 });
+    return NextResponse.json({ error: "Failed to update application" }, { status: 500 });
   }
 }

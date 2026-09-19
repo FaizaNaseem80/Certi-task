@@ -10,7 +10,7 @@ export interface SessionPayload {
   userId: string;
   email: string;
   name: string;
-  role: "COMPANY" | "STUDENT" | "ADMIN";
+  role: "CLIENT" | "TALENT" | "ADMIN";
 }
 
 export async function signToken(payload: SessionPayload): Promise<string> {
@@ -28,7 +28,7 @@ export async function verifyToken(token: string): Promise<SessionPayload | null>
       typeof payload.userId !== "string" ||
       typeof payload.email !== "string" ||
       typeof payload.name !== "string" ||
-      !["COMPANY", "STUDENT", "ADMIN"].includes(String(payload.role))
+      !["CLIENT", "TALENT", "ADMIN"].includes(String(payload.role))
     ) {
       return null;
     }
