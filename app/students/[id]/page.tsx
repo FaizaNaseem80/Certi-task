@@ -51,8 +51,8 @@ export default function StudentProfilePage() {
         if (!res.ok) throw new Error("Student not found");
         const data = await res.json();
         setStudent(data.student);
-      } catch (err: any) {
-        setError(err.message);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Student not found");
       } finally {
         setLoading(false);
       }

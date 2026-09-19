@@ -24,15 +24,33 @@ export default async function CertificatePage({ params }: { params: Promise<{ id
       <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#f6f9fc", fontFamily: "sans-serif" }}>
         <div style={{ textAlign: "center", padding: 40, background: "#fff", borderRadius: 12, boxShadow: "0 4px 20px rgba(0,0,0,0.06)" }}>
           <h2 style={{ color: "#07203b", margin: "0 0 10px" }}>Certificate Not Found</h2>
-          <p style={{ color: "#6b7280", margin: 0 }}>The requested credential could not be located or may have been revoked.</p>
+          <p style={{ color: "#6b7280", margin: 0 }}>No certificate matches this ID. Check the ID printed on the certificate and try again.</p>
         </div>
       </div>
     );
   }
 
+  const isRevoked = cert.status === "Revoked";
+  const isDisputed = cert.status === "Disputed";
+  const isValid = !isRevoked && !isDisputed;
+  const borderColor = isRevoked ? "#B91C1C" : isDisputed ? "#B45309" : "#D4A017";
+
   return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f6f9fc', padding: "40px 20px", fontFamily: "sans-serif" }}>
-      <div style={{ width: '100%', maxWidth: '860px', background: '#fff', borderRadius: 12, padding: '48px 40px', boxShadow: '0 12px 40px rgba(7,32,59,0.09)', border: '2px solid #D4A017', position: 'relative' }}>
+      <div style={{ width: '100%', maxWidth: '860px', background: '#fff', borderRadius: 12, padding: '48px 40px', boxShadow: '0 12px 40px rgba(7,32,59,0.09)', border: `2px solid ${borderColor}`, position: 'relative' }}>
+
+        {!isValid && (
+          <div role="alert" style={{ marginBottom: 24, padding: '14px 18px', borderRadius: 8, background: isRevoked ? '#FEF2F2' : '#FFFBEB', border: `1px solid ${isRevoked ? '#FECACA' : '#FDE68A'}`, color: isRevoked ? '#991B1B' : '#92400E' }}>
+            <div style={{ fontSize: 13, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 1 }}>
+              {isRevoked ? 'Certificate revoked' : 'Certificate under dispute'}
+            </div>
+            <div style={{ fontSize: 14, marginTop: 4 }}>
+              {isRevoked
+                ? 'The issuer has withdrawn this certificate. It should not be treated as a valid credential.'
+                : 'The issuer has flagged this certificate for review. Treat it as unconfirmed until the dispute is resolved.'}
+            </div>
+          </div>
+        )}
         
         {/* Top Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #E5E7EB', paddingBottom: 24 }}>
@@ -45,8 +63,8 @@ export default async function CertificatePage({ params }: { params: Promise<{ id
               <div style={{ fontSize: 11, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 1, fontWeight: 600 }}>Verified Corporate Credential</div>
             </div>
           </div>
-          <div style={{ background: 'rgba(56,161,105,0.1)', color: '#276749', padding: '6px 14px', borderRadius: 20, fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span>✓</span> Official Verification
+          <div style={{ background: isValid ? 'rgba(56,161,105,0.1)' : isRevoked ? 'rgba(185,28,28,0.1)' : 'rgba(180,83,9,0.12)', color: isValid ? '#276749' : isRevoked ? '#991B1B' : '#92400E', padding: '6px 14px', borderRadius: 20, fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span>{isValid ? '✓' : '!'}</span> {isValid ? 'Verified' : isRevoked ? 'Revoked' : 'Disputed'}
           </div>
         </div>
 
@@ -58,7 +76,7 @@ export default async function CertificatePage({ params }: { params: Promise<{ id
 
           <div style={{ marginTop: 24, marginBottom: 28 }}>
             <div style={{ fontSize: 32, fontWeight: 800, color: '#07203b', letterSpacing: -0.5 }}>{cert.studentName}</div>
-            <div style={{ width: 140, height: 3, background: '#D4A017', margin: '12px auto' }} />
+            <div style={{ width: 140, height: 3, background: borderColor, margin: '12px auto' }} />
             <div style={{ marginTop: 12, color: '#4B5563', fontSize: 14, maxWidth: 580, margin: '12px auto 0', lineHeight: 1.6 }}>
               has successfully completed all project milestones and met the verified criteria established by
             </div>
@@ -89,6 +107,7 @@ export default async function CertificatePage({ params }: { params: Promise<{ id
           {/* Action buttons */}
           <div style={{ marginTop: 32, display: 'flex', justifyContent: 'center', gap: 12 }}>
             <PrintButton />
+            {isValid && (
             <a
               href={`/api/certificates/${cert.id}/pdf`}
               target="_blank"
@@ -109,6 +128,7 @@ export default async function CertificatePage({ params }: { params: Promise<{ id
             >
               📥 Download Official PDF
             </a>
+            )}
           </div>
         </div>
 

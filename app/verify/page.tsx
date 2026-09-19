@@ -3,59 +3,59 @@
 import React, { useState } from "react";
 import { Button } from "@/components/Button";
 
+type CertificateStatus = "Verified" | "Revoked" | "Disputed";
+
 interface Certificate {
-  id: string;
+  certId: string;
   studentName: string;
-  major: string;
-  sponsor: string;
+  companyName: string;
   projectTitle: string;
-  dateIssued: string;
-  grade: string;
-  hash: string;
-  status: "Valid" | "Expired" | "Revoked";
+  issueDate: string;
+  status: CertificateStatus;
 }
 
-const mockCertificates: Record<string, Certificate> = {
-  "CERT-333333": {
-    id: "CERT-333333",
-    studentName: "Jane Doe",
-    major: "Computer Science Major",
-    sponsor: "Apex Global Solutions",
-    projectTitle: "SaaS API Integration Modules",
-    dateIssued: "2026-05-12",
-    grade: "Grade A+ (Distinction)",
-    hash: "8fb4e1f7d23a490b63c8a91f5e27d890ac349bf20a7b678c",
-    status: "Valid",
+interface VerifyResponse {
+  certificate: {
+    certId: string;
+    title: string;
+    studentName: string;
+    issueDate: string;
+    status: string;
+    company: { name: string };
+  };
+}
+
+const STATUS_STYLES: Record<CertificateStatus, { banner: string; icon: string; label: string; title: string }> = {
+  Verified: {
+    banner: "bg-green-50 border-green-200",
+    icon: "bg-green-100 text-green-600 border-green-200",
+    label: "bg-green-100 text-green-800 border-green-200",
+    title: "This certificate is genuine",
   },
-  "CERT-102455": {
-    id: "CERT-102455",
-    studentName: "Sarah Smith",
-    major: "UX/UI Design Major",
-    sponsor: "Vanguard Creative Labs",
-    projectTitle: "Brand Identity Design Assets",
-    dateIssued: "2026-06-18",
-    grade: "Credited Pass",
-    hash: "7ec2a5f4d89a240b90c1a91e5e22c890ab245bf10a5b678d",
-    status: "Valid",
+  Revoked: {
+    banner: "bg-red-50 border-red-200",
+    icon: "bg-red-100 text-red-600 border-red-200",
+    label: "bg-red-100 text-red-800 border-red-200",
+    title: "This certificate has been revoked by the issuer",
   },
-  "CERT-774132": {
-    id: "CERT-774132",
-    studentName: "Michael Chang",
-    major: "Financial Engineering Major",
-    sponsor: "Summit Financial Tech",
-    projectTitle: "Smart Contract Transaction Integrator",
-    dateIssued: "2026-07-22",
-    grade: "Outstanding Achievement",
-    hash: "9ac2b3f5d12a450b70c8a91c5e31d890ab249bf50a4b678e",
-    status: "Valid",
+  Disputed: {
+    banner: "bg-amber-50 border-amber-200",
+    icon: "bg-amber-100 text-amber-700 border-amber-200",
+    label: "bg-amber-100 text-amber-800 border-amber-200",
+    title: "This certificate is under dispute",
   },
 };
+
+function toStatus(value: string): CertificateStatus {
+  return value === "Revoked" || value === "Disputed" ? value : "Verified";
+}
 
 export default function VerifyPage() {
   const [certId, setCertId] = useState("");
   const [result, setResult] = useState<Certificate | null>(null);
   const [searched, setSearched] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -63,37 +63,31 @@ export default function VerifyPage() {
 
     setLoading(true);
     setSearched(false);
+    setError(null);
 
     const query = certId.trim().toUpperCase();
-    if (mockCertificates[query]) {
-      setResult(mockCertificates[query]);
-      setSearched(true);
-      setLoading(false);
-      return;
-    }
 
     try {
       const res = await fetch(`/api/verify/${encodeURIComponent(query)}`);
       if (res.ok) {
-        const data = await res.json();
+        const data = (await res.json()) as VerifyResponse;
         const c = data.certificate;
         setResult({
-          id: c.certId,
+          certId: c.certId,
           studentName: c.studentName,
-          major: "Verified Student",
-          sponsor: c.company.name,
+          companyName: c.company.name,
           projectTitle: c.title,
-          dateIssued: c.issueDate,
-          grade: "Verified Completion",
-          hash: c.id,
-          status: c.status as any
+          issueDate: c.issueDate,
+          status: toStatus(c.status),
         });
       } else {
         setResult(null);
+        if (res.status === 429) setError("Too many lookups from your network. Please try again in a little while.");
       }
     } catch (err) {
       console.error(err);
       setResult(null);
+      setError("Could not reach the verification service. Check your connection and try again.");
     } finally {
       setSearched(true);
       setLoading(false);
@@ -136,7 +130,7 @@ export default function VerifyPage() {
                     id="certificateId"
                     value={certId}
                     onChange={(e) => setCertId(e.target.value)}
-                    placeholder="E.g., CERT-333333"
+                    placeholder="CERT-XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX"
                     className="block w-full px-4 py-3 bg-paper border border-navy/15 rounded-lg text-ink font-sans text-sm focus:outline-hidden focus:ring-2 focus:ring-gold/50 focus:border-gold transition-colors"
                   />
                   <Button type="submit" variant="primary" className="py-3 px-8 shrink-0" disabled={loading}>
@@ -144,7 +138,7 @@ export default function VerifyPage() {
                   </Button>
                 </div>
                 <p className="text-[11px] text-ink/50 leading-normal">
-                  Try typing one of our verified sandbox IDs: <span className="font-mono font-bold text-navy">CERT-333333</span>, <span className="font-mono font-bold text-navy">CERT-102455</span>, or <span className="font-mono font-bold text-navy">CERT-774132</span> to preview verification metrics.
+                  The ID is printed on the certificate PDF and on its public certificate page.
                 </p>
               </div>
             </form>
@@ -156,19 +150,25 @@ export default function VerifyPage() {
               {result ? (
                 <div className="space-y-6">
                   {/* Status Banner */}
-                  <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+                  <div className={`flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border rounded-lg ${STATUS_STYLES[result.status].banner}`}>
                     <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 bg-green-100 text-green-600 rounded-full flex items-center justify-center border border-green-200 shadow-xs shrink-0">
-                        <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                        </svg>
+                      <div className={`h-10 w-10 rounded-full flex items-center justify-center border shadow-xs shrink-0 ${STATUS_STYLES[result.status].icon}`}>
+                        {result.status === "Verified" ? (
+                          <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                          </svg>
+                        ) : (
+                          <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                          </svg>
+                        )}
                       </div>
                       <div>
-                        <p className="text-xs font-bold text-green-800 uppercase tracking-wide">STATUS: CRYPTOGRAPHICALLY SECURE</p>
-                        <p className="text-sm font-bold text-navy mt-0.5">Vetted CertiTask Certificate</p>
+                        <p className="text-xs font-bold uppercase tracking-wide text-navy/70">Verification result</p>
+                        <p className="text-sm font-bold text-navy mt-0.5">{STATUS_STYLES[result.status].title}</p>
                       </div>
                     </div>
-                    <span className="px-3 py-1 bg-green-100 text-green-800 border border-green-200 rounded-full text-xs font-bold uppercase shrink-0">
+                    <span className={`px-3 py-1 border rounded-full text-xs font-bold uppercase shrink-0 ${STATUS_STYLES[result.status].label}`}>
                       {result.status}
                     </span>
                   </div>
@@ -176,34 +176,32 @@ export default function VerifyPage() {
                   {/* Details Grid */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-4 border-t border-navy/5">
                     <div>
-                      <p className="text-[10px] font-bold text-navy/60 uppercase tracking-wide">Student Name</p>
+                      <p className="text-[10px] font-bold text-navy/60 uppercase tracking-wide">Recipient</p>
                       <p className="text-base font-bold text-navy mt-1">{result.studentName}</p>
-                      <p className="text-xs text-ink/75 mt-0.5">{result.major}</p>
                     </div>
                     <div>
-                      <p className="text-[10px] font-bold text-navy/60 uppercase tracking-wide">Issuing Corporation</p>
-                      <p className="text-base font-bold text-navy mt-1">{result.sponsor}</p>
+                      <p className="text-[10px] font-bold text-navy/60 uppercase tracking-wide">Issued by</p>
+                      <p className="text-base font-bold text-navy mt-1">{result.companyName}</p>
                     </div>
                     <div>
-                      <p className="text-[10px] font-bold text-navy/60 uppercase tracking-wide">Project Title</p>
+                      <p className="text-[10px] font-bold text-navy/60 uppercase tracking-wide">Project</p>
                       <p className="text-sm font-semibold text-ink mt-1">{result.projectTitle}</p>
                     </div>
                     <div>
-                      <p className="text-[10px] font-bold text-navy/60 uppercase tracking-wide">Date Issued</p>
-                      <p className="text-sm font-semibold text-ink mt-1">{result.dateIssued}</p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-bold text-navy/60 uppercase tracking-wide">Performance Grade</p>
-                      <p className="text-sm font-semibold text-gold font-sans mt-1">{result.grade}</p>
+                      <p className="text-[10px] font-bold text-navy/60 uppercase tracking-wide">Date issued</p>
+                      <p className="text-sm font-semibold text-ink mt-1">{result.issueDate}</p>
                     </div>
                   </div>
 
-                  {/* Hash Signature */}
+                  {/* Certificate ID */}
                   <div className="pt-6 border-t border-navy/5 bg-paper/50 p-4 rounded-lg">
-                    <p className="text-[10px] font-bold text-navy/60 uppercase tracking-wide mb-1">Cryptographic Ledger Signature (SHA-256)</p>
+                    <p className="text-[10px] font-bold text-navy/60 uppercase tracking-wide mb-1">Certificate ID</p>
                     <p className="text-xs font-mono text-ink/75 break-all leading-normal bg-white p-2.5 rounded border border-navy/5">
-                      {result.hash}
+                      {result.certId}
                     </p>
+                    <a href={`/certificates/${encodeURIComponent(result.certId)}`} className="inline-block mt-3 text-xs font-bold text-navy underline underline-offset-2">
+                      Open the certificate page
+                    </a>
                   </div>
                 </div>
               ) : (
@@ -214,9 +212,13 @@ export default function VerifyPage() {
                     </svg>
                   </div>
                   <div>
-                    <h3 className="font-sans font-bold text-lg text-navy">Certificate ID Not Found</h3>
+                    <h3 className="font-sans font-bold text-lg text-navy">{error ? "Verification unavailable" : "Certificate ID not found"}</h3>
                     <p className="text-sm text-ink/70 max-w-md mx-auto mt-1">
-                      The ID <span className="font-mono font-bold text-red-600">"{certId}"</span> does not match any certificate in our verification records. Please double check characters and dashes.
+                      {error ?? (
+                        <>
+                          The ID <span className="font-mono font-bold text-red-600">&ldquo;{certId}&rdquo;</span> does not match any certificate in our records. Check the characters and dashes and try again.
+                        </>
+                      )}
                     </p>
                   </div>
                 </div>

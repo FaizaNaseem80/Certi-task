@@ -16,6 +16,15 @@ interface Company {
 
 const categories = ["All", "Technology", "Fintech", "Design & Media", "Healthcare & Biotech", "Edtech", "Energy & Tech"];
 
+interface ApiCompany {
+  id: string;
+  name: string;
+  domain: string | null;
+  bio: string | null;
+  website: string | null;
+  _count: { projects: number };
+}
+
 export default function CompaniesPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
@@ -29,7 +38,7 @@ export default function CompaniesPage() {
         const res = await fetch("/api/companies");
         if (res.ok) {
           const data = await res.json();
-          const mapped = data.companies.map((c: any) => ({
+          const mapped = (data.companies as ApiCompany[]).map((c) => ({
             id: c.id,
             name: c.name,
             industry: c.domain || "Technology",

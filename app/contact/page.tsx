@@ -227,7 +227,7 @@ export default function ContactPage() {
                   <div>
                     <h4 className="font-bold text-sm text-paper mb-1">How can my company create a partner account?</h4>
                     <p className="text-xs text-paper/70 leading-relaxed">
-                      Select "Partner Sign Up" in the Login portal or contact our sales team directly using this form. We offer custom pipelines for enterprises.
+                      Select &ldquo;Partner Sign Up&rdquo; in the Login portal or contact our sales team directly using this form. We offer custom pipelines for enterprises.
                     </p>
                   </div>
                 </div>

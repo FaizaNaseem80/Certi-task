@@ -332,7 +332,7 @@ export default async function Home() {
               </div>
             </div>
             <div className="bg-navy-dark/40 p-6 rounded-xl border border-paper/10 text-xs font-mono text-paper/70 space-y-2">
-              <p className="text-gold font-bold">// CERTITASK STUDENT PERKS:</p>
+              <p className="text-gold font-bold">{"// CERTITASK STUDENT PERKS:"}</p>
               <p>&gt; Work on actual company codebase branches.</p>
               <p>&gt; Collaborate in agile sprint pipelines.</p>
               <p>&gt; Receive direct feedback from tech sponsors.</p>
@@ -347,7 +347,7 @@ export default async function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
             <div className="order-2 md:order-1 bg-navy p-6 rounded-xl border border-gold/10 text-xs font-mono text-paper/85 space-y-2">
-              <p className="text-gold font-bold">// RECRUITMENT SIMPLIFIED:</p>
+              <p className="text-gold font-bold">{"// RECRUITMENT SIMPLIFIED:"}</p>
               <p>&gt; Filter candidate pools by verified project signoffs.</p>
               <p>&gt; Inspect code quality & pull request metrics directly.</p>
               <p>&gt; Reduce typical interview vetting costs by 60%.</p>

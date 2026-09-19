@@ -37,6 +37,11 @@ export async function GET(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  // A revoked certificate must not be reproduced as a clean PDF.
+  if (certificate.status === "Revoked") {
+    return NextResponse.json({ error: "This certificate has been revoked" }, { status: 410 });
+  }
+
   try {
     const pdfBuffer = await generateCertificatePdf({
       certId: certificate.certId,

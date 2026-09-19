@@ -15,74 +15,15 @@ interface Project {
   slots: string;
 }
 
-const mockProjects: Project[] = [
-  {
-    id: "proj-001",
-    title: "SaaS Analytics Dashboard UI",
-    company: "Apex Global Solutions",
-    category: "Design & Frontend",
-    difficulty: "Intermediate",
-    duration: "4 weeks",
-    description: "Design and implement a responsive analytics dashboard interface using React and Tailwind CSS. The dashboard must render real-time charts and allow data exporting.",
-    tags: ["React", "Tailwind CSS", "Chart.js", "TypeScript"],
-    slots: "3/4 slots open",
-  },
-  {
-    id: "proj-002",
-    title: "Secure Payment API Integration",
-    company: "Summit Financial Tech",
-    category: "Backend & Security",
-    difficulty: "Advanced",
-    duration: "6 weeks",
-    description: "Build a middleware bridge connecting a Stripe payment pipeline with custom transaction ledger APIs. Implement validation rules, request signing, and error logging.",
-    tags: ["Node.js", "Express", "Stripe API", "Cryptographic Signing"],
-    slots: "1/2 slots open",
-  },
-  {
-    id: "proj-003",
-    title: "Brand Identity Design Assets",
-    company: "Vanguard Creative Labs",
-    category: "Design & Frontend",
-    difficulty: "Beginner",
-    duration: "2 weeks",
-    description: "Create standard vector assets, color palettes, and interactive prototypes for a new green-energy branding project. Create responsive layout guidelines for product teams.",
-    tags: ["Figma", "UI Design", "Vector Graphics", "Prototyping"],
-    slots: "Closed (In Progress)",
-  },
-  {
-    id: "proj-004",
-    title: "Genomic Sequence Matcher Algorithm",
-    company: "BioHealth Systems",
-    category: "Data & Algorithms",
-    difficulty: "Advanced",
-    duration: "8 weeks",
-    description: "Optimize an alignment algorithm in Python to match genome subsequences. Build a lightweight REST API wrapper using FastAPI to process search requests in parallel.",
-    tags: ["Python", "FastAPI", "Data Analysis", "Parallel Computing"],
-    slots: "2/3 slots open",
-  },
-  {
-    id: "proj-005",
-    title: "LMS Classroom Feature Modules",
-    company: "EduLearn Networks",
-    category: "Backend & Security",
-    difficulty: "Intermediate",
-    duration: "5 weeks",
-    description: "Create backend REST handlers for scheduling virtual classes, managing student attendance registries, and issuing automated digital quiz certificates.",
-    tags: ["TypeScript", "Next.js", "PostgreSQL", "Prisma"],
-    slots: "4/5 slots open",
-  },
-  {
-    id: "proj-006",
-    title: "Quantum Algorithm Simulator",
-    company: "Quantum Logix",
-    category: "Data & Algorithms",
-    difficulty: "Advanced",
-    duration: "10 weeks",
-    description: "Translate mathematical quantum gates (Hadamard, CNOT) into Python matrix operations, providing a terminal-based simulator for running quantum circuits.",
-    tags: ["Python", "NumPy", "Linear Algebra", "Scientific Computing"],
-    slots: "1/2 slots open",
-  },
-];
+interface ApiProject {
+  id: string;
+  title: string;
+  description: string;
+  requiredSkills: string | null;
+  deadline: string | null;
+  teamCap: number;
+  company: { name: string } | null;
+}
 
 const categories = ["All", "Design & Frontend", "Backend & Security", "Data & Algorithms"];
 const difficulties = ["All", "Beginner", "Intermediate", "Advanced"];
@@ -101,12 +42,12 @@ export default function ProjectsPage() {
         const res = await fetch("/api/projects");
         if (res.ok) {
           const data = await res.json();
-          const mapped = data.projects.map((p: any) => ({
+          const mapped = (data.projects as ApiProject[]).map((p) => ({
             id: p.id,
             title: p.title,
             company: p.company?.name || "Unknown Company",
             category: "General",
-            difficulty: "Intermediate",
+            difficulty: "Intermediate" as const,
             duration: p.deadline || "TBD",
             description: p.description,
             tags: p.requiredSkills ? p.requiredSkills.split(",").map((s: string) => s.trim()) : [],

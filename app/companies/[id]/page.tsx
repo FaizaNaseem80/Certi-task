@@ -50,8 +50,8 @@ export default function CompanyDetailPage() {
         if (!res.ok) throw new Error("Company not found");
         const data = await res.json();
         setCompany(data.company);
-      } catch (err: any) {
-        setError(err.message);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Company not found");
       } finally {
         setLoading(false);
       }
