@@ -4,6 +4,7 @@ import { requireRole } from "@/lib/auth";
 import { isString } from "@/lib/validation";
 import { submissionInclude } from "@/lib/queries";
 import { audit } from "@/lib/audit";
+import { notify } from "@/lib/notifications";
 import { deliverCertificates, issueCertificatesForSubmission } from "@/lib/issue-certificates";
 
 type Params = { params: Promise<{ id: string }> };
@@ -43,7 +44,7 @@ export async function PATCH(req: Request, { params }: Params) {
       return NextResponse.json({ error: "This submission is already approved" }, { status: 409 });
     }
 
-    const { updated, certificateIds } = await prisma.$transaction(async (tx) => {
+    const { updated, result } = await prisma.$transaction(async (tx) => {
       const updated = await tx.submission.update({
         where: { id },
         data: {
@@ -55,14 +56,21 @@ export async function PATCH(req: Request, { params }: Params) {
       });
       await audit(auth, status === "APPROVED" ? "submission.approved" : "submission.rejected", "submission", id, { from: submission.status }, tx);
 
-      const certificateIds = status === "APPROVED" ? await issueCertificatesForSubmission(tx, auth, id) : [];
-      return { updated, certificateIds };
+      const result = status === "APPROVED"
+        ? await issueCertificatesForSubmission(tx, auth, id)
+        : { issued: [] as string[], held: [] as string[] };
+      if (status === "REJECTED") {
+        for (const m of updated.team.members.filter((x) => x.status === "ACCEPTED")) {
+          await notify(m.user.id, "submission.reviewed", "Changes requested", `${updated.project.title}: the client asked for changes. See their feedback and resubmit.`, "/talent/dashboard?tab=submissions", tx);
+        }
+      }
+      return { updated, result };
     }, { maxWait: 10_000, timeout: 60_000 }); // remote DB: several sequential round trips
 
     // Email delivery happens after commit and never blocks the response.
-    if (certificateIds.length > 0) void deliverCertificates(certificateIds);
+    if (result.issued.length > 0) void deliverCertificates(result.issued);
 
-    return NextResponse.json({ success: true, submission: updated, certificatesIssued: certificateIds.length });
+    return NextResponse.json({ success: true, submission: updated, certificatesIssued: result.issued.length, certificatesHeld: result.held.length });
   } catch (error) {
     console.error("Review submission error:", error);
     return NextResponse.json({ error: "Failed to review submission" }, { status: 500 });

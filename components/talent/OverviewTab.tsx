@@ -51,7 +51,11 @@ export function OverviewTab({ data, goTo }: { data: DashboardResponse; goTo: (t:
       />
 
       {profile.verificationStatus !== "VERIFIED" && (
-        <Notice kind="warning">Identity verification opens in the next release. Certificates are issued in the name on your verified ID, so keep your profile name accurate.</Notice>
+        <Notice kind="warning">
+          {profile.verificationStatus === "PENDING_REVIEW"
+            ? "Your identity verification is being reviewed."
+            : <>Certificates are issued only to verified identities. <button onClick={() => goTo("verification")} style={{ background: "none", border: "none", color: "#744210", fontWeight: 800, textDecoration: "underline", cursor: "pointer", padding: 0 }}>Verify your ID</button> so approved work turns into a certificate right away.</>}
+        </Notice>
       )}
       <div style={{ height: 20 }} />
 

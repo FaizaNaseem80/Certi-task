@@ -27,7 +27,9 @@ export function OverviewTab({ data, goTo }: { data: DashboardResponse; goTo: (t:
 
       {profile.verificationStatus !== "VERIFIED" && (
         <Notice kind="warning">
-          Your account is not verified yet. Verification (identity or organization documents) opens in the next release; until then your projects show as posted by an unverified client.
+          {profile.verificationStatus === "PENDING_REVIEW"
+            ? "Your verification is being reviewed. You can prepare projects as drafts meanwhile."
+            : <>Your account is not verified yet, so new projects are saved as drafts. <button onClick={() => goTo("verification")} style={{ background: "none", border: "none", color: "#744210", fontWeight: 800, textDecoration: "underline", cursor: "pointer", padding: 0 }}>Complete verification</button> to publish them.</>}
         </Notice>
       )}
 

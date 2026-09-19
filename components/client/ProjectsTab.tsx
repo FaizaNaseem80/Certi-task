@@ -8,7 +8,7 @@ import { PROJECT_CATEGORY_LABEL } from "@/lib/enums";
 import type { ApplicationDto, ProjectDto } from "@/lib/types";
 import type { ClientTab } from "@/app/client/dashboard/page";
 
-export function ProjectsTab({ projects, applications, goTo, onChanged }: { projects: ProjectDto[]; applications: ApplicationDto[]; goTo: (t: ClientTab) => void; onChanged: () => void }) {
+export function ProjectsTab({ projects, applications, goTo, onChanged, verified }: { projects: ProjectDto[]; applications: ApplicationDto[]; goTo: (t: ClientTab) => void; onChanged: () => void; verified: boolean }) {
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
@@ -45,6 +45,9 @@ export function ProjectsTab({ projects, applications, goTo, onChanged }: { proje
                   </div>
                   <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                     <StatusBadge status={p.status} />
+                    {p.status === "DRAFT" && (verified
+                      ? <Btn variant="gold" small disabled={busy} onClick={() => setStatus(p.id, "ACTIVE")}>Publish</Btn>
+                      : <button onClick={() => goTo("verification")} style={{ fontSize: 12, fontWeight: 700, color: "#97640E", background: "rgba(236,201,75,0.18)", border: "none", borderRadius: 8, padding: "6px 12px", cursor: "pointer" }}>Verify to publish</button>)}
                     {p.status === "ACTIVE" && <Btn variant="ghost" small disabled={busy} onClick={() => setStatus(p.id, "PAUSED")}>Pause</Btn>}
                     {p.status === "PAUSED" && <Btn variant="ghost" small disabled={busy} onClick={() => setStatus(p.id, "ACTIVE")}>Resume</Btn>}
                     {(p.status === "ACTIVE" || p.status === "PAUSED") && <Btn variant="outline" small disabled={busy} onClick={() => setStatus(p.id, "CLOSED")}>Close</Btn>}

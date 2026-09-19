@@ -39,14 +39,21 @@ export async function GET() {
 
 /**
  * POST /api/projects — client creates a project.
- * Phase 1: the project goes ACTIVE immediately. Phase 3 adds the draft/publish
- * step and Phase 4 inserts the listing-fee payment before activation.
+ * A VERIFIED client's project goes ACTIVE immediately; an unverified client's
+ * is saved as a DRAFT and can be published once verification is approved.
+ * Phase 4 inserts the listing-fee payment before activation.
  */
 export async function POST(req: Request) {
   const auth = await requireRole("CLIENT");
   if (auth instanceof NextResponse) return auth;
 
   try {
+    const me = await prisma.user.findUnique({ where: { id: auth.userId }, select: { emailVerifiedAt: true, verificationStatus: true } });
+    if (!me?.emailVerifiedAt) {
+      return NextResponse.json({ error: "Confirm your email address before posting a project" }, { status: 403 });
+    }
+    const canPublish = me.verificationStatus === "VERIFIED";
+
     const body = await req.json();
     const { title, description, category, requiredSkills, deliverables, deadline, teamCap } = body;
 
@@ -79,15 +86,19 @@ export async function POST(req: Request) {
         deliverables: deliverables.trim(),
         deadline: deadlineDate,
         teamCap: cap,
-        status: "ACTIVE",
-        publishedAt: new Date(),
+        status: canPublish ? "ACTIVE" : "DRAFT",
+        publishedAt: canPublish ? new Date() : null,
       },
       include: projectListInclude,
     });
 
     await audit(auth, "project.created", "project", project.id, { title: project.title, status: project.status });
 
-    return NextResponse.json({ success: true, project });
+    return NextResponse.json({
+      success: true,
+      project,
+      notice: canPublish ? null : "Saved as a draft. Once your verification is approved you can publish it from My Projects.",
+    });
   } catch (error) {
     console.error("Create project error:", error);
     return NextResponse.json({ error: "Failed to create project" }, { status: 500 });

@@ -144,6 +144,7 @@ model User {
   resumeUrl       String?
 
   // Government ID (never stored in plain text)
+  idType       String? // CNIC | PASSPORT | NATIONAL_ID
   idNumberHash String? @unique
   idLast4      String?
 
@@ -156,6 +157,7 @@ model User {
   submissions          Submission[]          @relation("SubmittedBy")
   certificatesEarned   Certificate[]         @relation("TalentCertificates")
   certificatesIssued   Certificate[]         @relation("ClientCertificates")
+  certificateHolds     CertificateHold[]
   verificationRequests VerificationRequest[]
   documents            Document[]
   payments             Payment[]
@@ -192,6 +194,7 @@ model Project {
   submissions  Submission[]
   certificates Certificate[]
   payments     Payment[]
+  holds        CertificateHold[]
 
   @@index([status, deadline])
   @@index([clientId])
@@ -317,6 +320,24 @@ model Certificate {
   @@map("certificates")
 }
 
+/// A certificate that was approved but is waiting for the recipient's identity
+/// to be VERIFIED. Issued automatically when verification is approved.
+model CertificateHold {
+  id           String   @id @default(uuid())
+  projectId    String
+  project      Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  talentId     String
+  talent       User     @relation(fields: [talentId], references: [id], onDelete: Cascade)
+  teamId       String?
+  submissionId String?
+  approvedById String
+  createdAt    DateTime @default(now())
+
+  @@unique([projectId, talentId])
+  @@index([talentId])
+  @@map("certificate_holds")
+}
+
 /**
  * ───────────────────────── Verification ─────────────────────────
  */
@@ -355,6 +376,18 @@ model Document {
 
   @@index([userId])
   @@map("documents")
+}
+
+/// Binary storage for verification documents. Kept in Postgres for now
+/// (see lib/storage.ts); swap the storage backend without touching Document.
+model DocumentBlob {
+  key       String   @id
+  data      Bytes
+  mimeType  String
+  sizeBytes Int
+  createdAt DateTime @default(now())
+
+  @@map("document_blobs")
 }
 
 /**

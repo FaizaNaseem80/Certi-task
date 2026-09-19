@@ -42,6 +42,11 @@ export async function POST(req: Request) {
   if (auth instanceof NextResponse) return auth;
 
   try {
+    const me = await prisma.user.findUnique({ where: { id: auth.userId }, select: { emailVerifiedAt: true } });
+    if (!me?.emailVerifiedAt) {
+      return NextResponse.json({ error: "Confirm your email address before applying" }, { status: 403 });
+    }
+
     const { projectId, teamName, pitch } = await req.json();
 
     if (!isString(projectId, 100) || !isString(teamName, 100) || !isString(pitch, 10000)) {

@@ -125,6 +125,12 @@ export interface CertificateDto {
   talent?: { id: string; name: string };
 }
 
+export interface CertificateHoldDto {
+  id: string;
+  createdAt: string;
+  project: { id: string; title: string; client: { name: string } };
+}
+
 export interface DashboardResponse {
   user: SessionUser;
   profile: ProfileDto;
@@ -132,4 +138,5 @@ export interface DashboardResponse {
   applications: ApplicationDto[];
   submissions: SubmissionDto[];
   certificates: CertificateDto[];
+  certificateHolds: CertificateHoldDto[];
 }

@@ -61,6 +61,12 @@ export async function PATCH(req: Request, { params }: Params) {
       if (typeof body.status !== "string" || !allowed.includes(body.status)) {
         return NextResponse.json({ error: `Cannot change a ${project.status.toLowerCase()} project to ${String(body.status).toLowerCase()}` }, { status: 400 });
       }
+      if (body.status === "ACTIVE" && project.status === "DRAFT") {
+        const me = await prisma.user.findUnique({ where: { id: auth.userId }, select: { verificationStatus: true } });
+        if (me?.verificationStatus !== "VERIFIED") {
+          return NextResponse.json({ error: "Complete verification before publishing a project" }, { status: 403 });
+        }
+      }
       data.status = body.status;
       if (body.status === "ACTIVE" && !project.publishedAt) data.publishedAt = new Date();
       if (body.status === "CLOSED") data.closedAt = new Date();

@@ -4,6 +4,7 @@ import { requireRole } from "@/lib/auth";
 import { isString } from "@/lib/validation";
 import { certificateInclude } from "@/lib/queries";
 import { audit } from "@/lib/audit";
+import { notify } from "@/lib/notifications";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -45,6 +46,7 @@ export async function PATCH(req: Request, { params }: Params) {
       include: certificateInclude,
     });
     await audit(auth, `certificate.${status.toLowerCase()}`, "certificate", certificate.id, { certId: certificate.certId, from: certificate.status, reason: reason ?? null });
+    await notify(certificate.talentId, "certificate.status", `Certificate ${status.toLowerCase()}`, `${certificate.title} (${certificate.certId}) is now ${status.toLowerCase()}.${reason ? ` Reason: ${reason}` : ""}`, "/talent/dashboard?tab=certificates");
 
     return NextResponse.json({ success: true, certificate: updated });
   } catch (error) {

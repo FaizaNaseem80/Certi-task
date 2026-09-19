@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-require-imports */
 /**
  * Demo data for local development and reviews.
  *   npm run seed
@@ -12,7 +11,7 @@
 const fs = require("fs");
 const path = require("path");
 const bcrypt = require("bcryptjs");
-const { createHmac, randomBytes } = require("crypto");
+const { createHash, createHmac, randomBytes, randomUUID } = require("crypto");
 const { PrismaClient } = require("@prisma/client");
 const { PrismaPg } = require("@prisma/adapter-pg");
 const { Pool } = require("pg");
@@ -111,9 +110,41 @@ async function main() {
     { email: "sana.malik@example.com", name: "Sana Malik", universityName: "LUMS", degreeProgram: "BSc Management Science", currentSemester: "Graduated", skills: ["Market research", "Copywriting", "Notion", "Google Analytics"], bio: "Marketing and research. I write things people actually read.", location: "Lahore, Pakistan" },
     { email: "hamza.iqbal@example.com", name: "Hamza Iqbal", universityName: "COMSATS", degreeProgram: "BS Data Science", currentSemester: "4", gpa: 3.1, skills: ["Python", "Pandas", "SQL", "Data cleaning"], bio: "Data student looking for real datasets to work on.", location: "Islamabad, Pakistan" },
   ]) {
-    talents.push(await upsertUser({ ...t, role: "TALENT", emailVerifiedAt: new Date() }));
+    // Reset verification state so re-seeding always returns to the demo baseline.
+    const base = { verificationStatus: "UNVERIFIED", verifiedAt: null, legalName: null, idType: null, idNumberHash: null, idLast4: null };
+    const u = await upsertUser({ ...base, ...t, role: "TALENT", emailVerifiedAt: new Date() });
+    await prisma.verificationRequest.deleteMany({ where: { userId: u.id } });
+    await prisma.document.deleteMany({ where: { userId: u.id } });
+    await prisma.certificateHold.deleteMany({ where: { talentId: u.id } });
+    await prisma.notification.deleteMany({ where: { userId: u.id } });
+    talents.push(u);
   }
   const [ayesha, bilal, sana] = talents;
+
+  /* ── Bilal has submitted identity verification (pending in the admin queue) ── */
+  await prisma.verificationRequest.deleteMany({ where: { userId: bilal.id } });
+  await prisma.document.deleteMany({ where: { userId: bilal.id } });
+  const placeholderPng = Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAMgAAAB4CAIAAAC6vSg5AAAAvklEQVR4nO3BAQ0AAADCoPdPbQ43oAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADgN4oAAAGJ2TdVAAAAAElFTkSuQmCC", "base64"
+  ); // 200x120 blank PNG — stands in for an ID scan
+  const docs = [];
+  for (const type of ["ID_FRONT", "ID_BACK"]) {
+    const key = `pg:${randomUUID()}`;
+    await prisma.documentBlob.create({ data: { key, data: placeholderPng, mimeType: "image/png", sizeBytes: placeholderPng.length } });
+    docs.push(await prisma.document.create({ data: { userId: bilal.id, type, storageKey: key, mimeType: "image/png", sizeBytes: placeholderPng.length } }));
+  }
+  const bilalCnic = "3520212345671";
+  await prisma.verificationRequest.create({
+    data: {
+      userId: bilal.id, kind: "IDENTITY",
+      formData: { legalName: "Bilal Ahmed", idType: "CNIC", idLast4: bilalCnic.slice(-4), authorizedPersonName: "Bilal Ahmed", registrationNumber: null },
+      documents: { connect: docs.map((d) => ({ id: d.id })) },
+    },
+  });
+  await prisma.user.update({
+    where: { id: bilal.id },
+    data: { verificationStatus: "PENDING_REVIEW", idType: "CNIC", idLast4: bilalCnic.slice(-4), idNumberHash: createHash("sha256").update(`${process.env.ID_HASH_PEPPER || process.env.JWT_SECRET}|CNIC|${bilalCnic}`).digest("hex") },
+  });
 
   /* ── Projects (reset demo ones by title) ── */
   const projectDefs = [
@@ -147,11 +178,20 @@ async function main() {
     },
   ];
 
+  // Drop accounts and projects left behind by automated smoke tests.
+  await prisma.user.deleteMany({ where: { email: { startsWith: "smoke2+" } } });
+  const smoke = await prisma.project.findMany({ where: { title: { startsWith: "Smoke" } }, select: { id: true } });
+  for (const sp of smoke) { await prisma.certificate.deleteMany({ where: { projectId: sp.id } }); await prisma.project.delete({ where: { id: sp.id } }); }
+
   const projects = {};
   for (const def of projectDefs) {
     const { client, ...data } = def;
     const existing = await prisma.project.findFirst({ where: { clientId: client.id, title: def.title } });
-    if (existing) await prisma.project.delete({ where: { id: existing.id } }); // cascades teams/apps/subs; certs are restricted, handled below
+    if (existing) {
+      // Certificates restrict project deletion on purpose; demo ones are safe to drop.
+      await prisma.certificate.deleteMany({ where: { projectId: existing.id } });
+      await prisma.project.delete({ where: { id: existing.id } }); // cascades teams/apps/subs/holds
+    }
     projects[def.title] = await prisma.project.create({
       data: { ...data, clientId: client.id, publishedAt: new Date() },
     });
@@ -235,7 +275,7 @@ Done. Sign in with password "${PASSWORD}":
   Client (organization, verified)   projects@acmestudio.pk
   Client (individual, unverified)   ali.raza@example.com
   Talent (verified, 1 certificate)  ayesha.khan@example.com
-  Talent                            bilal.ahmed@example.com
+  Talent (verification pending)     bilal.ahmed@example.com
   Talent                            sana.malik@example.com
   Talent                            hamza.iqbal@example.com
 

@@ -53,7 +53,7 @@ export function ProfileTab({ profile, onSaved }: { profile: ProfileDto; onSaved:
       <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", border: "1px solid var(--border)", borderRadius: 10, marginBottom: 20, background: "#FAFAFA", flexWrap: "wrap" }}>
         <span style={{ fontSize: 13, fontWeight: 700, color: "var(--navy)" }}>Identity verification</span>
         <VerificationBadge status={profile.verificationStatus} />
-        <span style={{ fontSize: 12, color: "var(--ink-subtle)" }}>{profile.verificationStatus === "VERIFIED" ? `Verified · ID ending ${profile.idLast4 ?? "····"}` : "Document upload and review arrive in the next release."}</span>
+        <span style={{ fontSize: 12, color: "var(--ink-subtle)" }}>{profile.verificationStatus === "VERIFIED" ? `Verified · ID ending ${profile.idLast4 ?? "····"}` : "Upload your ID in the Verification tab."}</span>
       </div>
 
       <form onSubmit={save}>

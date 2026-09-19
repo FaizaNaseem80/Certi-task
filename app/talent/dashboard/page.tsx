@@ -1,7 +1,8 @@
 "use client";
 
 import { Suspense } from "react";
-import { DashboardShell, LoadingScreen, SidebarStats, type TabDef } from "@/components/dashboard/DashboardShell";
+import { DashboardShell, EmailBanner, LoadingScreen, SidebarStats, type TabDef } from "@/components/dashboard/DashboardShell";
+import { VerificationTab } from "@/components/dashboard/VerificationTab";
 import { VerificationBadge } from "@/components/dashboard/ui";
 import { signOut, useDashboardData, useTabParam } from "@/components/dashboard/useDashboardData";
 import { OverviewTab } from "@/components/talent/OverviewTab";
@@ -11,7 +12,7 @@ import { SubmissionsTab } from "@/components/talent/SubmissionsTab";
 import { CertificatesTab } from "@/components/talent/CertificatesTab";
 import { ProfileTab } from "@/components/talent/ProfileTab";
 
-const TAB_IDS = ["overview", "projects", "applications", "submissions", "certificates", "profile"] as const;
+const TAB_IDS = ["overview", "projects", "applications", "submissions", "certificates", "verification", "profile"] as const;
 export type TalentTab = (typeof TAB_IDS)[number];
 
 function TalentDashboard() {
@@ -30,7 +31,8 @@ function TalentDashboard() {
     { id: "projects",     label: "Find Projects",    icon: "🔎", badge: projects.length },
     { id: "applications", label: "My Applications",  icon: "📋" },
     { id: "submissions",  label: "My Submissions",   icon: "📤", badge: needsSubmission, badgeColor: "#E53E3E" },
-    { id: "certificates", label: "My Certificates",  icon: "🏅", badge: certificates.length, badgeColor: "var(--success)" },
+    { id: "certificates", label: "My Certificates",  icon: "🏅", badge: certificates.length + (data.certificateHolds?.length ?? 0), badgeColor: (data.certificateHolds?.length ?? 0) > 0 ? "#97640E" : "var(--success)" },
+    { id: "verification", label: "Verification",     icon: "🪪", badge: profile.verificationStatus === "VERIFIED" ? 0 : 1, badgeColor: profile.verificationStatus === "PENDING_REVIEW" ? "#97640E" : "#E53E3E" },
     { id: "profile",      label: "Edit Profile",     icon: "✏️" },
   ];
 
@@ -45,6 +47,7 @@ function TalentDashboard() {
       activeTab={tab}
       onTabChange={setTab}
       onSignOut={signOut}
+      banner={<EmailBanner email={profile.email} verified={!!profile.emailVerifiedAt} onVerify={() => setTab("verification")} />}
       headerActions={
         <>
           <button onClick={() => setTab("projects")} style={{ marginLeft: 8, padding: "6px 14px", background: "var(--gold)", color: "var(--navy)", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>Find projects</button>
@@ -63,7 +66,8 @@ function TalentDashboard() {
       {tab === "projects"     && <ProjectsTab projects={projects} applications={applications} submissions={submissions} onChanged={refresh} goTo={setTab} />}
       {tab === "applications" && <ApplicationsTab applications={applications} onChanged={refresh} goTo={setTab} />}
       {tab === "submissions"  && <SubmissionsTab applications={applications} submissions={submissions} onChanged={refresh} />}
-      {tab === "certificates" && <CertificatesTab certificates={certificates} talentId={profile.id} />}
+      {tab === "certificates" && <CertificatesTab certificates={certificates} holds={data.certificateHolds ?? []} talentId={profile.id} goTo={setTab} />}
+      {tab === "verification" && <VerificationTab profile={profile} onChanged={refresh} />}
       {tab === "profile"      && <ProfileTab profile={profile} onSaved={refresh} />}
     </DashboardShell>
   );

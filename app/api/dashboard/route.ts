@@ -15,7 +15,7 @@ export async function GET() {
     const isClient = auth.role === "CLIENT";
     const memberOf = { team: { members: { some: { userId: auth.userId, status: "ACCEPTED" as const } } } };
 
-    const [projects, applications, submissions, certificates] = await Promise.all([
+    const [projects, applications, submissions, certificates, certificateHolds] = await Promise.all([
       prisma.project.findMany({
         where: isClient ? { clientId: auth.userId } : { status: "ACTIVE", deadline: { gte: new Date() } },
         include: projectListInclude,
@@ -36,6 +36,13 @@ export async function GET() {
         include: certificateInclude,
         orderBy: { issuedAt: "desc" },
       }),
+      isClient
+        ? Promise.resolve([])
+        : prisma.certificateHold.findMany({
+            where: { talentId: auth.userId },
+            select: { id: true, createdAt: true, project: { select: { id: true, title: true, client: { select: { name: true } } } } },
+            orderBy: { createdAt: "desc" },
+          }),
     ]);
 
     return NextResponse.json({
@@ -45,6 +52,7 @@ export async function GET() {
       applications,
       submissions,
       certificates,
+      certificateHolds,
     });
   } catch (error) {
     console.error("Dashboard load error:", error);

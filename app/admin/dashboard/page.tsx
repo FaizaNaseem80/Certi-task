@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { PROJECT_STATUSES, PROJECT_STATUS_LABEL, statusLabel } from "@/lib/enums";
+import { VerificationQueue } from "@/components/admin/VerificationQueue";
 
 function UserStatus({ clientType, verificationStatus, suspendedAt }: { clientType: string | null; verificationStatus: string; suspendedAt: string | null }) {
   return (
@@ -78,7 +79,7 @@ interface Message {
   createdAt: string;
 }
 
-type Tab = "overview" | "clients" | "talents" | "projects" | "messages";
+type Tab = "overview" | "verifications" | "clients" | "talents" | "projects" | "messages";
 
 export default function AdminDashboard() {
   const router = useRouter();
@@ -292,6 +293,7 @@ export default function AdminDashboard() {
 
   const sidebarLinks = [
     { id: "overview", label: "Dashboard", icon: "📊" },
+    { id: "verifications", label: overview?.pendingVerifications ? `Verifications (${overview.pendingVerifications})` : "Verifications", icon: "🪪" },
     { id: "clients", label: "Clients", icon: "🏢" },
     { id: "talents", label: "Talent", icon: "🎓" },
     { id: "projects", label: "Projects", icon: "🚀" },
@@ -575,6 +577,9 @@ export default function AdminDashboard() {
               </div>
             </div>
           )}
+
+          {/* ── VERIFICATIONS ── */}
+          {activeTab === "verifications" && <VerificationQueue onDecided={() => { void fetchAll(); }} />}
 
           {/* ── MESSAGES ── */}
           {activeTab === "messages" && (

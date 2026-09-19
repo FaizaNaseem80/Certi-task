@@ -1,7 +1,8 @@
 "use client";
 
 import { Suspense } from "react";
-import { DashboardShell, LoadingScreen, SidebarStats, type TabDef } from "@/components/dashboard/DashboardShell";
+import { DashboardShell, EmailBanner, LoadingScreen, SidebarStats, type TabDef } from "@/components/dashboard/DashboardShell";
+import { VerificationTab } from "@/components/dashboard/VerificationTab";
 import { VerificationBadge } from "@/components/dashboard/ui";
 import { signOut, useDashboardData, useTabParam } from "@/components/dashboard/useDashboardData";
 import { CLIENT_TYPE_LABEL } from "@/lib/enums";
@@ -13,7 +14,7 @@ import { SubmissionsTab } from "@/components/client/SubmissionsTab";
 import { CertificatesTab } from "@/components/client/CertificatesTab";
 import { ProfileTab } from "@/components/client/ProfileTab";
 
-const TAB_IDS = ["overview", "post-project", "projects", "applications", "submissions", "certificates", "profile"] as const;
+const TAB_IDS = ["overview", "post-project", "projects", "applications", "submissions", "certificates", "verification", "profile"] as const;
 export type ClientTab = (typeof TAB_IDS)[number];
 
 function ClientDashboard() {
@@ -35,6 +36,7 @@ function ClientDashboard() {
     { id: "applications", label: "Applications",      icon: "📋", badge: pendingApps },
     { id: "submissions",  label: "Review Submissions", icon: "📤", badge: reviewQueue, badgeColor: "#E53E3E" },
     { id: "certificates", label: "Issued Certificates", icon: "🏅" },
+    { id: "verification", label: "Verification",      icon: "🪪", badge: profile.verificationStatus === "VERIFIED" ? 0 : 1, badgeColor: profile.verificationStatus === "PENDING_REVIEW" ? "#97640E" : "#E53E3E" },
     { id: "profile",      label: "Edit Profile",      icon: "✏️" },
   ];
 
@@ -49,6 +51,7 @@ function ClientDashboard() {
       activeTab={tab}
       onTabChange={setTab}
       onSignOut={signOut}
+      banner={<EmailBanner email={profile.email} verified={!!profile.emailVerifiedAt} onVerify={() => setTab("verification")} />}
       headerActions={
         <>
           <button onClick={() => setTab("post-project")} style={{ marginLeft: 8, padding: "6px 14px", background: "var(--gold)", color: "var(--navy)", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>+ Post project</button>
@@ -65,11 +68,12 @@ function ClientDashboard() {
       }
     >
       {tab === "overview"     && <OverviewTab data={data} goTo={setTab} onChanged={refresh} />}
-      {tab === "post-project" && <PostProjectTab clientName={profile.name} onCreated={() => { void refresh(); setTab("projects"); }} />}
-      {tab === "projects"     && <ProjectsTab projects={projects} applications={applications} goTo={setTab} onChanged={refresh} />}
+      {tab === "post-project" && <PostProjectTab clientName={profile.name} verified={profile.verificationStatus === "VERIFIED"} onCreated={() => { void refresh(); setTab("projects"); }} />}
+      {tab === "projects"     && <ProjectsTab projects={projects} applications={applications} goTo={setTab} onChanged={refresh} verified={profile.verificationStatus === "VERIFIED"} />}
       {tab === "applications" && <ApplicationsTab applications={applications} projects={projects} onChanged={refresh} />}
       {tab === "submissions"  && <SubmissionsTab submissions={submissions} onChanged={refresh} />}
       {tab === "certificates" && <CertificatesTab certificates={certificates} onChanged={refresh} />}
+      {tab === "verification" && <VerificationTab profile={profile} onChanged={refresh} />}
       {tab === "profile"      && <ProfileTab profile={profile} onSaved={refresh} />}
     </DashboardShell>
   );

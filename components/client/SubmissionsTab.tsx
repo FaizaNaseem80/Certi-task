@@ -10,7 +10,7 @@ export function SubmissionsTab({ submissions, onChanged }: { submissions: Submis
   const [busyId, setBusyId] = useState<string | null>(null);
   const [rejecting, setRejecting] = useState<SubmissionDto | null>(null);
   const [feedback, setFeedback] = useState("");
-  const [issued, setIssued] = useState<number | null>(null);
+  const [issued, setIssued] = useState<{ issued: number; held: number } | null>(null);
 
   const pending = submissions.filter(s => s.status === "SUBMITTED");
   const done = submissions.filter(s => s.status !== "SUBMITTED");
@@ -19,10 +19,10 @@ export function SubmissionsTab({ submissions, onChanged }: { submissions: Submis
     const n = sub.team.members?.filter(m => m.status === "ACCEPTED").length ?? 1;
     if (!confirm(`Approve this submission and issue ${n} certificate${n !== 1 ? "s" : ""}? This cannot be undone.`)) return;
     setError(null); setBusyId(sub.id);
-    const res = await api<{ certificatesIssued: number }>(`/api/submissions/${sub.id}`, "PATCH", { status: "APPROVED" });
+    const res = await api<{ certificatesIssued: number; certificatesHeld: number }>(`/api/submissions/${sub.id}`, "PATCH", { status: "APPROVED" });
     setBusyId(null);
     if (!res.ok) { setError(res.error ?? "Could not approve"); return; }
-    setIssued(res.data?.certificatesIssued ?? 0);
+    setIssued({ issued: res.data?.certificatesIssued ?? 0, held: res.data?.certificatesHeld ?? 0 });
     onChanged();
   }
 
@@ -69,7 +69,12 @@ export function SubmissionsTab({ submissions, onChanged }: { submissions: Submis
     <div>
       <SectionHeader icon="📤" title="Review submissions" subtitle="Approving issues a verifiable certificate to every accepted member of the team." />
       {error && <Notice kind="error">{error}</Notice>}
-      {issued !== null && <Notice kind="success">Approved. {issued} certificate{issued !== 1 ? "s" : ""} issued and emailed to the team.</Notice>}
+      {issued !== null && (
+        <Notice kind="success">
+          Approved. {issued.issued} certificate{issued.issued !== 1 ? "s" : ""} issued and emailed.
+          {issued.held > 0 && <> {issued.held} member{issued.held > 1 ? "s haven't" : " hasn't"} verified their identity yet; their certificate is issued automatically once they do.</>}
+        </Notice>
+      )}
 
       {submissions.length === 0 ? (
         <EmptyState icon="📂" title="Nothing to review yet" hint="Once a selected team submits their deliverables, it shows up here." />

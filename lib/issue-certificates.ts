@@ -4,93 +4,106 @@ import { generateCertId, signCertificate } from "@/lib/certificates";
 import { generateCertificatePdf } from "@/lib/pdf";
 import { sendCertificateEmail } from "@/lib/email";
 import { audit } from "@/lib/audit";
+import { notify } from "@/lib/notifications";
 import type { SessionPayload } from "@/lib/auth-token";
 
+type Tx = Prisma.TransactionClient;
+type Actor = SessionPayload | "system";
+
+interface Recipient { id: string; name: string; legalName: string | null; email: string; verificationStatus: string }
+interface IssueContext {
+  projectId: string;
+  title: string;
+  skills: string[];
+  teamId: string | null;
+  submissionId: string | null;
+  client: { id: string; name: string; legalName: string | null; clientType: "INDIVIDUAL" | "ORGANIZATION" | null };
+}
+
+/** Create one certificate row. Caller guarantees the recipient is VERIFIED and has none for this project. */
+async function createCertificate(tx: Tx, actor: Actor, ctx: IssueContext, user: Recipient): Promise<string> {
+  const issuedAt = new Date();
+  const certId = generateCertId();
+  const recipientName = user.legalName || user.name;
+  const issuerName = ctx.client.legalName || ctx.client.name;
+  const signature = signCertificate({ certId, recipientName, recipientEmail: user.email, issuerName, projectId: ctx.projectId, title: ctx.title, issuedAt });
+
+  const cert = await tx.certificate.create({
+    data: {
+      certId, talentId: user.id, clientId: ctx.client.id, projectId: ctx.projectId, teamId: ctx.teamId,
+      recipientName, recipientEmail: user.email, issuerName, issuerType: ctx.client.clientType ?? "INDIVIDUAL",
+      title: ctx.title, skills: ctx.skills, issuedAt, signature,
+    },
+  });
+  await audit(actor, "certificate.issued", "certificate", cert.id, { certId, talentId: user.id, projectId: ctx.projectId }, tx);
+  await notify(user.id, "certificate.issued", "Certificate issued 🏅", `Your certificate for "${ctx.title}" from ${issuerName} is ready.`, `/talent/dashboard?tab=certificates`, tx);
+  return cert.id;
+}
+
 /**
- * Issue one certificate per ACCEPTED team member for an approved submission.
- * Idempotent: a member who already holds a certificate for this project is skipped
- * (unique [projectId, talentId]). Runs inside the caller's transaction.
- *
- * Phase 2 will additionally require the recipient's identity to be VERIFIED.
+ * On submission approval: issue a certificate to every ACCEPTED member whose
+ * identity is VERIFIED; place a hold for the others (issued automatically when
+ * their verification is approved). Idempotent per (project, talent).
  */
 export async function issueCertificatesForSubmission(
-  tx: Prisma.TransactionClient,
+  tx: Tx,
   actor: SessionPayload,
   submissionId: string
-): Promise<string[]> {
+): Promise<{ issued: string[]; held: string[] }> {
   const submission = await tx.submission.findUniqueOrThrow({
     where: { id: submissionId },
     include: {
-      project: {
-        select: {
-          id: true,
-          title: true,
-          requiredSkills: true,
-          client: { select: { id: true, name: true, legalName: true, clientType: true } },
-        },
-      },
-      team: {
-        select: {
-          id: true,
-          members: {
-            where: { status: "ACCEPTED" },
-            select: { user: { select: { id: true, name: true, legalName: true, email: true } } },
-          },
-        },
-      },
+      project: { select: { id: true, title: true, requiredSkills: true, client: { select: { id: true, name: true, legalName: true, clientType: true } } } },
+      team: { select: { id: true, members: { where: { status: "ACCEPTED" }, select: { user: { select: { id: true, name: true, legalName: true, email: true, verificationStatus: true } } } } } },
     },
   });
-
-  const client = submission.project.client;
-  const issuerName = client.legalName || client.name;
-  const issuerType = client.clientType ?? "INDIVIDUAL";
-  const title = submission.project.title;
-  const issued: string[] = [];
+  const ctx: IssueContext = {
+    projectId: submission.project.id, title: submission.project.title, skills: submission.project.requiredSkills,
+    teamId: submission.team.id, submissionId, client: submission.project.client,
+  };
 
   const memberIds = submission.team.members.map((m) => m.user.id);
-  const existing = await tx.certificate.findMany({
-    where: { projectId: submission.project.id, talentId: { in: memberIds } },
-    select: { talentId: true },
-  });
-  const alreadyIssued = new Set(existing.map((c) => c.talentId));
+  const [existingCerts, existingHolds] = await Promise.all([
+    tx.certificate.findMany({ where: { projectId: ctx.projectId, talentId: { in: memberIds } }, select: { talentId: true } }),
+    tx.certificateHold.findMany({ where: { projectId: ctx.projectId, talentId: { in: memberIds } }, select: { talentId: true } }),
+  ]);
+  const done = new Set([...existingCerts.map((c) => c.talentId), ...existingHolds.map((h) => h.talentId)]);
 
+  const issued: string[] = [];
+  const held: string[] = [];
   for (const { user } of submission.team.members) {
-    if (alreadyIssued.has(user.id)) continue;
-
-    const issuedAt = new Date();
-    const certId = generateCertId();
-    const recipientName = user.legalName || user.name;
-    const signature = signCertificate({
-      certId,
-      recipientName,
-      recipientEmail: user.email,
-      issuerName,
-      projectId: submission.project.id,
-      title,
-      issuedAt,
-    });
-
-    const cert = await tx.certificate.create({
-      data: {
-        certId,
-        talentId: user.id,
-        clientId: client.id,
-        projectId: submission.project.id,
-        teamId: submission.team.id,
-        recipientName,
-        recipientEmail: user.email,
-        issuerName,
-        issuerType,
-        title,
-        skills: submission.project.requiredSkills,
-        issuedAt,
-        signature,
-      },
-    });
-    await audit(actor, "certificate.issued", "certificate", cert.id, { certId, talentId: user.id, projectId: submission.project.id }, tx);
-    issued.push(cert.id);
+    if (done.has(user.id)) continue;
+    if (user.verificationStatus === "VERIFIED") {
+      issued.push(await createCertificate(tx, actor, ctx, user));
+    } else {
+      await tx.certificateHold.create({ data: { projectId: ctx.projectId, talentId: user.id, teamId: ctx.teamId, submissionId, approvedById: actor.userId } });
+      await audit(actor, "certificate.held", "user", user.id, { projectId: ctx.projectId, reason: "identity not verified" }, tx);
+      await notify(user.id, "certificate.issued", "Certificate waiting for verification", `"${ctx.title}" was approved. Verify your identity to receive the certificate.`, `/talent/dashboard?tab=verification`, tx);
+      held.push(user.id);
+    }
   }
+  return { issued, held };
+}
 
+/** When a talent's identity is approved, issue every certificate on hold for them. */
+export async function releaseHeldCertificates(tx: Tx, actor: Actor, talentId: string): Promise<string[]> {
+  const holds = await tx.certificateHold.findMany({
+    where: { talentId },
+    include: { project: { select: { id: true, title: true, requiredSkills: true, client: { select: { id: true, name: true, legalName: true, clientType: true } } } } },
+  });
+  if (holds.length === 0) return [];
+  const user = await tx.user.findUniqueOrThrow({ where: { id: talentId }, select: { id: true, name: true, legalName: true, email: true, verificationStatus: true } });
+
+  const issued: string[] = [];
+  for (const h of holds) {
+    const already = await tx.certificate.findUnique({ where: { projectId_talentId: { projectId: h.projectId, talentId } }, select: { id: true } });
+    if (!already) {
+      issued.push(await createCertificate(tx, actor, {
+        projectId: h.project.id, title: h.project.title, skills: h.project.requiredSkills, teamId: h.teamId, submissionId: h.submissionId, client: h.project.client,
+      }, user));
+    }
+    await tx.certificateHold.delete({ where: { id: h.id } });
+  }
   return issued;
 }
 

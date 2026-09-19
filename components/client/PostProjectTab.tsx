@@ -7,7 +7,7 @@ import { PROJECT_CATEGORIES, PROJECT_CATEGORY_LABEL, TEAM_CAP_DEFAULT, TEAM_CAP_
 
 const EMPTY = { title: "", description: "", category: "" as ProjectCategory | "", requiredSkills: "", deliverables: "", deadline: "", teamCap: TEAM_CAP_DEFAULT };
 
-export function PostProjectTab({ clientName, onCreated }: { clientName: string; onCreated: () => void }) {
+export function PostProjectTab({ clientName, onCreated, verified }: { clientName: string; onCreated: () => void; verified: boolean }) {
   const [form, setForm] = useState(EMPTY);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -18,16 +18,19 @@ export function PostProjectTab({ clientName, onCreated }: { clientName: string; 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null); setBusy(true);
-    const res = await api("/api/projects", "POST", form);
+    const res = await api<{ notice?: string | null }>("/api/projects", "POST", form);
     setBusy(false);
     if (!res.ok) { setError(res.error ?? "Could not create the project"); return; }
     setForm(EMPTY);
+    if (res.data?.notice) alert(res.data.notice);
     onCreated();
   }
 
   return (
     <div>
       <SectionHeader icon="➕" title="Post a project" subtitle="Describe the work, the skills it needs and what must be delivered. Talent will apply as individuals or teams." />
+      {!verified && <Notice kind="warning">Your account isn&apos;t verified yet, so this will be saved as a <strong>draft</strong>. You can publish it as soon as verification is approved.</Notice>}
+      <div style={{ height: 8 }} />
       <div className="mobile-dashboard-two-col" style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 24 }}>
         <form onSubmit={submit}>
           <div style={{ border: "1px solid var(--border)", borderRadius: 12, padding: 24, marginBottom: 20, display: "flex", flexDirection: "column", gap: 16 }}>
@@ -58,7 +61,7 @@ export function PostProjectTab({ clientName, onCreated }: { clientName: string; 
               <input id="proj-deadline" type="date" min={minDate} value={form.deadline} onChange={e => setForm({ ...form, deadline: e.target.value })} style={{ ...inputStyle(), maxWidth: 240 }} required />
             </Field>
           </div>
-          <Btn type="submit" disabled={busy} style={{ width: "100%", padding: "14px 0", fontSize: 15 }}>{busy ? "Posting…" : "Publish project"}</Btn>
+          <Btn type="submit" disabled={busy} style={{ width: "100%", padding: "14px 0", fontSize: 15 }}>{busy ? "Saving…" : verified ? "Publish project" : "Save as draft"}</Btn>
           {error && <Notice kind="error">{error}</Notice>}
         </form>
 

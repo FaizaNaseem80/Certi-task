@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth";
 import { applicationInclude } from "@/lib/queries";
 import { audit } from "@/lib/audit";
+import { notify } from "@/lib/notifications";
+import { APPLICATION_STATUS_LABEL } from "@/lib/enums";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -55,6 +57,12 @@ export async function PATCH(req: Request, { params }: Params) {
       include: applicationInclude,
     });
     await audit(auth, "application.status_changed", "application", id, { from: application.status, to: status });
+    if (auth.role === "CLIENT") {
+      const label = APPLICATION_STATUS_LABEL[status as keyof typeof APPLICATION_STATUS_LABEL];
+      for (const m of updated.team.members.filter((x) => x.status === "ACCEPTED")) {
+        await notify(m.user.id, "application.status", `Application ${label.toLowerCase()}`, `${updated.project.title}: your team "${updated.team.name}" was ${label.toLowerCase()}.${status === "SELECTED" ? " You can now submit your work." : ""}`, "/talent/dashboard?tab=applications");
+      }
+    }
 
     return NextResponse.json({ success: true, application: updated });
   } catch (error) {
