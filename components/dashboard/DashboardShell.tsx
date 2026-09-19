@@ -103,6 +103,11 @@ export function DashboardShell<T extends string>({
                 );
               })}
             </div>
+            {/* Shown only on phones, where the header actions are hidden */}
+            <div className="mobile-dashboard-drawer-actions" style={{ display: "none", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "12px 16px", borderTop: "1px solid var(--border)" }}>
+              <NotificationBell light />
+              <button onClick={onSignOut} style={{ padding: "8px 14px", background: "transparent", border: "1px solid var(--border)", borderRadius: 8, color: "var(--navy)", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>Sign out</button>
+            </div>
           </nav>
           {sidebarExtra}
         </aside>

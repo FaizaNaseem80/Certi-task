@@ -31,11 +31,11 @@ const STATUS_STYLE: Record<string, { bg: string; color: string }> = {
   PENDING_REVIEW: { bg: "rgba(236,201,75,0.18)", color: "#97640E" },
 };
 
-export function StatusBadge({ status }: { status: string }) {
+export function StatusBadge({ status, label }: { status: string; label?: string }) {
   const s = STATUS_STYLE[status] ?? { bg: "#EDF2F7", color: "#4A5568" };
   return (
     <span style={{ display: "inline-block", padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 700, background: s.bg, color: s.color, whiteSpace: "nowrap" }}>
-      {statusLabel(status)}
+      {label ?? statusLabel(status)}
     </span>
   );
 }

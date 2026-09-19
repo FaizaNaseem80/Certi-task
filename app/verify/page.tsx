@@ -120,7 +120,7 @@ export default function VerifyPage() {
             Verify a <span className="text-gold">Certificate</span>
           </h1>
           <p className="text-paper/85 text-lg max-w-2xl mx-auto leading-relaxed">
-            CertiTask credentials are cryptographically secured and independently queryable. Confirm student credentials below.
+            Every CertiTask certificate has a unique ID and a signed record. Enter the ID printed on a certificate to confirm it is genuine, who issued it, and whether it is still valid.
           </p>
         </div>
       </section>

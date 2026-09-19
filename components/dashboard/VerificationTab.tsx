@@ -52,7 +52,7 @@ function DocumentUpload({ slot, label, hint, doc, onChange, disabled }: { slot: 
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
           <span style={{ fontSize: 12, color: "var(--success)", fontWeight: 700 }}>✓ Uploaded</span>
           <a href={`/api/verification/documents/${doc.id}`} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: "var(--navy)", fontWeight: 600 }}>Preview</a>
-          <span style={{ fontSize: 11, color: "var(--ink-subtle)" }}>{(doc.sizeBytes / 1024).toFixed(0)} KB · {doc.mimeType.split("/")[1].toUpperCase()}</span>
+          <span style={{ fontSize: 11, color: "var(--ink-subtle)" }}>{doc.sizeBytes < 1024 ? "<1" : Math.round(doc.sizeBytes / 1024)} KB · {doc.mimeType.split("/")[1].toUpperCase()}</span>
           {!disabled && <button type="button" onClick={remove} style={{ fontSize: 11, color: "#9B2C2C", background: "none", border: "none", cursor: "pointer", fontWeight: 600 }}>Remove</button>}
         </div>
       ) : (

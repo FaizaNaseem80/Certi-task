@@ -99,6 +99,10 @@ img, svg, video, canvas, iframe {
     display: none !important;
   }
 
+  .mobile-dashboard-drawer-actions {
+    display: flex !important;
+  }
+
   .mobile-dashboard-menu-button,
   .mobile-dashboard-close-button {
     display: inline-flex;

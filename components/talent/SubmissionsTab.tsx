@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Btn, Card, EmptyState, Field, Modal, Notice, SectionHeader, StatusBadge, formatDate, inputStyle, textareaStyle } from "@/components/dashboard/ui";
 import { api } from "@/components/dashboard/useDashboardData";
 import type { ApplicationDto, SubmissionDto } from "@/lib/types";
+import { SUBMISSION_STATUS_LABEL } from "@/lib/enums";
 
 export function SubmissionsTab({ applications, submissions, onChanged }: { applications: ApplicationDto[]; submissions: SubmissionDto[]; onChanged: () => void }) {
   const [target, setTarget] = useState<{ projectId: string; title: string; existing?: SubmissionDto } | null>(null);
@@ -64,7 +65,7 @@ export function SubmissionsTab({ applications, submissions, onChanged }: { appli
                   <h4 style={{ fontSize: 16, fontWeight: 700, color: "var(--navy)", margin: "0 0 4px" }}>{sub.project.title}</h4>
                   <span style={{ fontSize: 12, color: "var(--ink-muted)" }}>{sub.project.client?.name} · submitted {formatDate(sub.createdAt)}</span>
                 </div>
-                <StatusBadge status={sub.status} />
+                <StatusBadge status={sub.status} label={SUBMISSION_STATUS_LABEL[sub.status]} />
               </div>
               <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 10, flexWrap: "wrap" }}>
                 <span style={{ fontSize: 12, color: "var(--ink-subtle)" }}>🔗</span>

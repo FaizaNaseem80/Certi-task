@@ -137,7 +137,7 @@ export function VerificationQueue({ onDecided }: { onDecided: () => void }) {
                   <div key={d.id} className="border rounded-lg overflow-hidden">
                     <div className="flex justify-between items-center px-3 py-2 bg-gray-50 text-xs">
                       <span className="font-bold text-navy">{DOC_LABEL[d.type] ?? d.type}</span>
-                      <span className="text-gray-500">{(d.sizeBytes / 1024).toFixed(0)} KB · <a href={`/api/verification/documents/${d.id}`} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">open in new tab</a></span>
+                      <span className="text-gray-500">{d.sizeBytes < 1024 ? "<1" : Math.round(d.sizeBytes / 1024)} KB · <a href={`/api/verification/documents/${d.id}`} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">open in new tab</a></span>
                     </div>
                     {d.mimeType === "application/pdf"
                       ? <iframe src={`/api/verification/documents/${d.id}`} title={DOC_LABEL[d.type]} className="w-full h-[420px] bg-white" />

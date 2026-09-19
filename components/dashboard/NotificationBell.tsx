@@ -13,7 +13,7 @@ function ago(iso: string) {
   return `${Math.floor(s / 86400)}d ago`;
 }
 
-export function NotificationBell() {
+export function NotificationBell({ light = false }: { light?: boolean }) {
   const router = useRouter();
   const [items, setItems] = useState<Item[]>([]);
   const [unread, setUnread] = useState(0);
@@ -62,12 +62,12 @@ export function NotificationBell() {
   return (
     <div ref={ref} style={{ position: "relative" }}>
       <button onClick={() => setOpen(o => !o)} aria-label={`Notifications${unread ? `, ${unread} unread` : ""}`} aria-expanded={open}
-        style={{ position: "relative", width: 36, height: 36, borderRadius: 10, background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)", color: "#fff", fontSize: 16, cursor: "pointer" }}>
+        style={{ position: "relative", width: 36, height: 36, borderRadius: 10, background: light ? "var(--paper)" : "rgba(255,255,255,0.1)", border: light ? "1px solid var(--border)" : "1px solid rgba(255,255,255,0.2)", color: light ? "var(--navy)" : "#fff", fontSize: 16, cursor: "pointer" }}>
         🔔
         {unread > 0 && <span style={{ position: "absolute", top: -5, right: -5, minWidth: 18, height: 18, padding: "0 5px", borderRadius: 9, background: "#E53E3E", color: "#fff", fontSize: 10, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }}>{unread > 99 ? "99+" : unread}</span>}
       </button>
       {open && (
-        <div style={{ position: "absolute", right: 0, top: 44, width: 340, maxWidth: "calc(100vw - 32px)", background: "#fff", border: "1px solid var(--border)", borderRadius: 12, boxShadow: "var(--shadow-lg)", zIndex: 300, overflow: "hidden" }}>
+        <div style={{ position: "absolute", [light ? "left" : "right"]: 0, top: 44, width: 340, maxWidth: "calc(100vw - 32px)", background: "#fff", border: "1px solid var(--border)", borderRadius: 12, boxShadow: "var(--shadow-lg)", zIndex: 300, overflow: "hidden" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", borderBottom: "1px solid var(--border)" }}>
             <span style={{ fontSize: 13, fontWeight: 700, color: "var(--navy)" }}>Notifications</span>
             {unread > 0 && <button onClick={markAll} style={{ fontSize: 11, color: "var(--navy)", background: "none", border: "none", cursor: "pointer", fontWeight: 600 }}>Mark all read</button>}

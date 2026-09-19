@@ -124,9 +124,7 @@ async function main() {
   /* ── Bilal has submitted identity verification (pending in the admin queue) ── */
   await prisma.verificationRequest.deleteMany({ where: { userId: bilal.id } });
   await prisma.document.deleteMany({ where: { userId: bilal.id } });
-  const placeholderPng = Buffer.from(
-    "iVBORw0KGgoAAAANSUhEUgAAAMgAAAB4CAIAAAC6vSg5AAAAvklEQVR4nO3BAQ0AAADCoPdPbQ43oAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADgN4oAAAGJ2TdVAAAAAElFTkSuQmCC", "base64"
-  ); // 200x120 blank PNG — stands in for an ID scan
+  const placeholderPng = fs.readFileSync(path.join(__dirname, "assets", "sample-id.png")); // demo "ID card", clearly marked as a sample
   const docs = [];
   for (const type of ["ID_FRONT", "ID_BACK"]) {
     const key = `pg:${randomUUID()}`;

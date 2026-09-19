@@ -79,7 +79,7 @@ export function ProfileTab({ profile, onSaved }: { profile: ProfileDto; onSaved:
             <Field label="Phone">
               <input id="pf-phone" value={form.phone} onChange={set("phone")} style={inputStyle()} placeholder="+92 300 1234567" />
             </Field>
-            <Field label="Website" hint={isOrg ? "Verification will check that your email domain matches this website." : undefined}>
+            <Field label="Website">
               <input id="pf-website" type="url" value={form.website} onChange={set("website")} style={inputStyle()} placeholder="https://example.com" />
             </Field>
             <Field label="LinkedIn">
