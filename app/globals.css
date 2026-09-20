@@ -1308,3 +1308,8 @@ img, svg, video, canvas, iframe {
   transition: var(--transition);
 }
 .forgot-link:hover { color: var(--gold); }
+
+@media print {
+  .no-print, nav, footer { display: none !important; }
+  body { background: #fff !important; }
+}

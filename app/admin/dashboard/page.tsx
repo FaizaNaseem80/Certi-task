@@ -123,6 +123,7 @@ export default function AdminDashboard() {
       const responses = [ovRes, usRes, projRes, msgRes];
       if (responses.some((response) => response.status === 401 || response.status === 403)) {
         setError("Unauthorized. Please login as Super Admin.");
+        await fetch("/api/auth/logout", { method: "POST" }).catch(() => {}); // stale cookie would otherwise redirect back here
         router.push("/admin/login");
         return;
       }
