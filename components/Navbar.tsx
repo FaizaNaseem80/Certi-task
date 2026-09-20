@@ -25,7 +25,7 @@ export const Navbar = () => {
 
   const navLinks = [
     { name: "Home", href: "/" },
-    { name: "How It Works", href: "/#how-it-works" },
+    { name: "How It Works", href: "/how-it-works" },
     { name: "Clients", href: "/clients" },
     { name: "Browse Projects", href: "/projects" },
     { name: "Verify Certificate", href: "/verify" },
@@ -51,12 +51,12 @@ export const Navbar = () => {
       }`}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-20">
+        <div className="flex justify-between h-[76px]">
           {/* Logo Section */}
           <div className="flex items-center">
             <Link href="/" className="flex items-center gap-2 group">
               <Logo className="h-10 w-10 transition-transform group-hover:scale-105" />
-              <span className="font-sans font-bold text-2xl tracking-tight text-paper">
+              <span className="font-sans font-bold text-2xl tracking-[-0.04em] text-paper">
                 Certi<span className="text-gold">Task</span>
               </span>
             </Link>
@@ -70,7 +70,7 @@ export const Navbar = () => {
                 <Link
                   key={link.name}
                   href={link.href}
-                  className={`px-3 py-2 rounded-md text-sm font-semibold tracking-wide transition-colors relative ${
+                    className={`px-3 py-2 text-[11px] font-bold uppercase tracking-[0.12em] transition-colors relative ${
                     active
                       ? "text-gold"
                       : "text-paper/85 hover:text-gold"
@@ -93,7 +93,7 @@ export const Navbar = () => {
           </div>
 
           {/* Mobile menu button */}
-          <div className="flex items-center lg:hidden">
+          <div className="flex items-center md:hidden">
             <button
               onClick={() => setIsOpen(!isOpen)}
               type="button"
@@ -140,7 +140,7 @@ export const Navbar = () => {
 
       {/* Mobile Menu */}
       <div
-        className={`lg:hidden transition-all duration-300 ease-in-out ${
+        className={`md:hidden transition-all duration-300 ease-in-out ${
           isOpen
             ? "max-h-screen opacity-100 visible"
             : "max-h-0 opacity-0 invisible overflow-hidden"

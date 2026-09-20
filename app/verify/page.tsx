@@ -110,32 +110,28 @@ export default function VerifyPage() {
   return (
     <div className="flex flex-col min-h-screen">
       {/* Page Header */}
-      <section className="bg-gradient-to-b from-navy-dark to-navy text-paper py-20 relative overflow-hidden">
-        <div className="absolute inset-0 opacity-10 bg-[linear-gradient(to_right,#C9A227_1px,transparent_1px),linear-gradient(to_bottom,#C9A227_1px,transparent_1px)] bg-[size:4rem_4rem]"></div>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10 space-y-6">
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold tracking-wider bg-gold/15 text-gold border border-gold/30">
-            Security Ledger
-          </span>
-          <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight">
-            Verify a <span className="text-gold">Certificate</span>
-          </h1>
-          <p className="text-paper/85 text-lg max-w-2xl mx-auto leading-relaxed">
-            Every CertiTask certificate has a unique ID and a signed record. Enter the ID printed on a certificate to confirm it is genuine, who issued it, and whether it is still valid.
-          </p>
+      <section className="bg-navy-dark text-paper py-20 sm:py-28 relative overflow-hidden">
+        <div className="absolute inset-0 opacity-10 bg-[linear-gradient(to_right,#C9A227_1px,transparent_1px),linear-gradient(to_bottom,#C9A227_1px,transparent_1px)] bg-[size:5rem_5rem]"></div>
+        <div className="max-w-7xl mx-auto px-6 sm:px-10 relative z-10">
+          <div className="max-w-4xl">
+            <p className="mb-8 flex items-center gap-3 text-xs font-mono uppercase tracking-[0.2em] text-gold"><span className="h-px w-10 bg-gold" /> Public verification</p>
+            <h1 className="text-5xl sm:text-7xl font-black leading-[0.98] tracking-[-0.04em]">Check the <span className="text-gold">record.</span></h1>
+            <p className="mt-8 text-lg max-w-2xl text-paper/75 leading-relaxed sm:text-xl">A CertiTask certificate is a signed record of work. Enter its ID to see who did it, who reviewed it, and whether it is still valid.</p>
+          </div>
         </div>
       </section>
 
       {/* Verification Query Tool */}
-      <section className="py-24 bg-paper text-ink flex-1">
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
+      <section className="py-20 sm:py-28 bg-paper text-ink flex-1">
+        <div className="max-w-5xl mx-auto px-6 sm:px-10 space-y-12">
           {/* Lookup Input Form */}
-          <div className="bg-white p-8 rounded-2xl border border-navy/5 shadow-xs relative overflow-hidden">
-            <div className="absolute top-0 left-0 right-0 h-1.5 bg-navy"></div>
+          <div className="bg-white p-6 sm:p-10 border-y border-navy/15 relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-28 h-1.5 bg-gold"></div>
             
             <form onSubmit={handleSearch} className="space-y-6">
               <div className="space-y-2">
-                <label htmlFor="certificateId" className="block text-xs font-bold text-navy/85 uppercase tracking-wide">
-                  Certificate Lookup ID
+                <label htmlFor="certificateId" className="block text-xs font-bold text-navy/85 uppercase tracking-[0.16em]">
+                  Certificate ID
                 </label>
                 <div className="flex flex-col sm:flex-row gap-3">
                   <input
@@ -144,10 +140,10 @@ export default function VerifyPage() {
                     value={certId}
                     onChange={(e) => setCertId(e.target.value)}
                     placeholder="CERT-XXXX-XXXX-XXXX"
-                    className="block w-full px-4 py-3 bg-paper border border-navy/15 rounded-lg text-ink font-sans text-sm focus:outline-hidden focus:ring-2 focus:ring-gold/50 focus:border-gold transition-colors"
+                    className="block w-full px-4 py-4 bg-paper border border-navy/20 rounded-none text-ink font-mono text-sm focus:outline-hidden focus:ring-2 focus:ring-gold/50 focus:border-gold transition-colors"
                   />
-                  <Button type="submit" variant="primary" className="py-3 px-8 shrink-0" disabled={loading}>
-                    {loading ? "Verifying..." : "Verify Authenticity"}
+                  <Button type="submit" variant="primary" className="py-3 px-8 shrink-0 rounded-none" disabled={loading}>
+                    {loading ? "Checking..." : "Check record"}
                   </Button>
                 </div>
                 <p className="text-[11px] text-ink/50 leading-normal">
@@ -159,11 +155,11 @@ export default function VerifyPage() {
 
           {/* Results Panel */}
           {searched && (
-            <div className="bg-white p-8 rounded-2xl border border-navy/5 shadow-md relative overflow-hidden transition-all duration-300">
+            <div className="bg-white p-6 sm:p-10 border-y border-navy/15 relative overflow-hidden transition-all duration-300">
               {result ? (
                 <div className="space-y-6">
                   {/* Status Banner */}
-                  <div className={`flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border rounded-lg ${STATUS_STYLES[result.status].banner}`}>
+                  <div className={`flex flex-col sm:flex-row items-center justify-between gap-4 p-5 border ${STATUS_STYLES[result.status].banner}`}>
                     <div className="flex items-center gap-3">
                       <div className={`h-10 w-10 rounded-full flex items-center justify-center border shadow-xs shrink-0 ${STATUS_STYLES[result.status].icon}`}>
                         {result.status === "VERIFIED" ? (

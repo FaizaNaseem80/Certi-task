@@ -279,6 +279,12 @@ export default function LoginPage() {
               Create account
             </Link>
           </p>
+          <p className="auth-nav-text mt-2">
+            Administrator?{" "}
+            <Link href="/admin/login" className="auth-link">
+              Use the admin portal
+            </Link>
+          </p>
         </div>
       </div>
     </div>

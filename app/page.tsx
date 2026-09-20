@@ -3,14 +3,21 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { Button } from "@/components/Button";
 
-
+type Client = {
+  id: string;
+  name: string;
+  tag: string;
+  description: string;
+  location: string;
+  openProjects: number;
+  logoChar: string;
+};
 
 export default async function Home() {
   let dbClients: Array<{
     id: string;
     name: string;
     clientType: "INDIVIDUAL" | "ORGANIZATION" | null;
-    verificationStatus: string;
     industry: string | null;
     bio: string | null;
     location: string | null;
@@ -26,7 +33,6 @@ export default async function Home() {
         id: true,
         name: true,
         clientType: true,
-        verificationStatus: true,
         industry: true,
         bio: true,
         location: true,
@@ -37,417 +43,50 @@ export default async function Home() {
     console.error("Failed to fetch featured clients from database:", error);
   }
 
-  const displayClients = dbClients.map((c) => ({
-    id: c.id,
-    name: c.name,
-    tag: c.industry || (c.clientType === "ORGANIZATION" ? "Organization" : "Individual"),
-    verified: c.verificationStatus === "VERIFIED",
-    description: c.bio || "Posting real projects on CertiTask.",
-    location: c.location || "Remote",
-    openProjects: c._count.projectsPosted,
-    logoChar: c.name.charAt(0).toUpperCase(),
+  const clients: Client[] = dbClients.map((client) => ({
+    id: client.id,
+    name: client.name,
+    tag: client.industry || (client.clientType === "ORGANIZATION" ? "Organization" : "Individual"),
+    description: client.bio || "Posting real projects on CertiTask.",
+    location: client.location || "Remote",
+    openProjects: client._count.projectsPosted,
+    logoChar: client.name.charAt(0).toUpperCase(),
   }));
 
   const steps = [
-    {
-      number: "01",
-      title: "Clients Post Real Projects",
-      description: "Organizations and individuals post short, well-defined projects outlining exactly what needs to be done.",
-    },
-    {
-      number: "02",
-      title: "Talent Applies & Builds",
-      description: "Talent finds projects that match their skills, forms a team or goes solo, and does the work.",
-    },
-    {
-      number: "03",
-      title: "Clients Review the Work",
-      description: "Deliverables go straight to the client for review, feedback and sign-off.",
-    },
-    {
-      number: "04",
-      title: "Earn Verified Proof",
-      description: "Once approved, every team member receives a CertiTask certificate naming the project, the client and the skills used.",
-    },
-  ];
-
-  const benefits = [
-    {
-      title: "Real-world Project Experience",
-      description: "Skip tutorial apps. Build things a real client actually needed.",
-      icon: (
-        <svg className="h-6 w-6 text-gold" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-        </svg>
-      ),
-    },
-    {
-      title: "Verified Certificates",
-      description: "Every certificate is backed by a client sign-off and a public verification page.",
-      icon: (
-        <svg className="h-6 w-6 text-gold" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-        </svg>
-      ),
-    },
-    {
-      title: "Faster Than Internships",
-      description: "Compact, project-based timelines that fit around your class schedules and semester workloads.",
-      icon: (
-        <svg className="h-6 w-6 text-gold" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-        </svg>
-      ),
-    },
-    {
-      title: "Team-based Work",
-      description: "Work solo or in a team of up to 20, the way real projects are run.",
-      icon: (
-        <svg className="h-6 w-6 text-gold" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-        </svg>
-      ),
-    },
-    {
-      title: "Recruiter-Verifiable Proof",
-      description: "Provide third parties with direct, secure, and authenticated access to review your exact contributions.",
-      icon: (
-        <svg className="h-6 w-6 text-gold" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2" />
-        </svg>
-      ),
-    },
-    {
-      title: "Free for Talent",
-      description: "No application fees, no registration costs. Only clients pay a small listing fee.",
-      icon: (
-        <svg className="h-6 w-6 text-gold" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M12 16V3" />
-        </svg>
-      ),
-    },
+    ["01", "Find the brief", "Choose a real project that fits your skills and ambition."],
+    ["02", "Do the work", "Work solo or with a team, with a clear client outcome in view."],
+    ["03", "Get the sign-off", "The client reviews the deliverable and records what you made."],
+    ["04", "Carry the proof", "Your certificate becomes a public record of the work."],
   ];
 
   return (
-    <div className="flex flex-col min-h-screen">
-      {/* 1. HERO SECTION */}
-      <section className="relative bg-gradient-to-b from-navy-dark to-navy text-paper pt-24 pb-28 md:py-36 overflow-hidden">
-        {/* Aesthetic Grid Background */}
-        <div className="absolute inset-0 opacity-10 bg-[linear-gradient(to_right,#C9A227_1px,transparent_1px),linear-gradient(to_bottom,#C9A227_1px,transparent_1px)] bg-[size:4rem_4rem]"></div>
-        <div className="absolute top-1/4 left-10 w-72 h-72 bg-gold/10 rounded-full blur-3xl"></div>
-        <div className="absolute bottom-1/4 right-10 w-96 h-96 bg-gold/5 rounded-full blur-3xl"></div>
-
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
-            {/* Left Column: Heading, Subtext, Buttons */}
-            <div className="lg:col-span-7 space-y-8 text-center lg:text-left">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold tracking-wider bg-gold/15 text-gold border border-gold/30">
-                🚀 A Modern Experience Ecosystem
-              </span>
-              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight leading-tight sm:leading-none">
-                Ready to Build Your <br />
-                <span className="text-gold">Verified Future?</span>
-              </h1>
-              <p className="text-paper/85 text-lg sm:text-xl max-w-2xl mx-auto lg:mx-0 leading-relaxed font-sans">
-                Work on real projects. Build real experience. Earn certificates that recruiters can actually verify.
-              </p>
-              <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4 pt-4">
-                <Button href="/projects" variant="gold" className="w-full sm:w-auto px-8 py-3.5 text-base">
-                  Explore Projects
-                </Button>
-                <Button href="/auth/signup" variant="outline" className="w-full sm:w-auto px-8 py-3.5 text-base border-paper text-paper hover:bg-paper hover:text-navy">
-                  Post a Project
-                </Button>
-              </div>
-            </div>
-
-            {/* Right Column: Visual Dashboard Mock */}
-            <div className="lg:col-span-5 relative mt-8 lg:mt-0">
-              <div className="relative mx-auto max-w-md lg:max-w-none bg-navy-dark/60 backdrop-blur-md rounded-2xl border border-gold/20 shadow-2xl p-6 overflow-hidden">
-                <div className="flex items-center justify-between pb-4 border-b border-paper/10 mb-6">
-                  <div className="flex space-x-1.5">
-                    <span className="h-3 w-3 rounded-full bg-red-500"></span>
-                    <span className="h-3 w-3 rounded-full bg-yellow-500"></span>
-                    <span className="h-3 w-3 rounded-full bg-green-500"></span>
-                  </div>
-                  <span className="text-[10px] font-mono text-gold/80 bg-gold/10 px-2 py-0.5 rounded">certitask-public_showcase</span>
-                </div>
-
-                <div className="space-y-4 font-sans text-xs">
-                  <div className="bg-navy/80 p-3 rounded-lg border border-gold/15 flex justify-between items-center">
-                    <div>
-                      <h4 className="font-semibold text-paper text-sm">Certificate #CERT-333333</h4>
-                      <p className="text-[10px] text-paper/60">Issued to: Jane Doe (CS Major)</p>
-                    </div>
-                    <span className="text-[10px] px-2 py-1 bg-gold/10 text-gold border border-gold/30 rounded font-semibold">Verify</span>
-                  </div>
-
-                  <div className="bg-navy/55 p-3 rounded-lg border border-paper/5 space-y-2">
-                    <div className="flex justify-between items-center text-paper/85 font-semibold text-xs">
-                      <span>Apex Global: API Integration Project</span>
-                      <span className="text-gold font-bold">100% Verified</span>
-                    </div>
-                    <p className="text-[10px] text-paper/60">Skills demonstrated: Next.js, Node.js, REST APIs, TypeScript.</p>
-                  </div>
-                </div>
-              </div>
-            </div>
+    <div className="bg-paper text-ink">
+      <section className="relative overflow-hidden bg-navy-dark text-paper">
+        <div className="absolute inset-0 opacity-10 bg-[linear-gradient(to_right,#C9A227_1px,transparent_1px),linear-gradient(to_bottom,#C9A227_1px,transparent_1px)] bg-[size:5rem_5rem]" />
+        <div className="relative mx-auto grid max-w-7xl gap-16 px-6 pb-24 pt-20 sm:px-10 lg:grid-cols-12 lg:items-center lg:gap-8 lg:pb-32 lg:pt-28">
+          <div className="lg:col-span-7">
+            <div className="mb-8 flex items-center gap-3 text-xs font-mono uppercase tracking-[0.2em] text-gold"><span className="h-px w-10 bg-gold" /> The experience ledger</div>
+            <h1 className="max-w-4xl text-5xl font-black leading-[0.98] tracking-[-0.04em] sm:text-7xl lg:text-[6.8rem]">Make your work <span className="text-gold">count.</span></h1>
+            <p className="mt-8 max-w-xl text-lg leading-relaxed text-paper/75 sm:text-xl">CertiTask turns real projects into proof that travels. Find meaningful work, ship it, and leave with a certificate anyone can verify.</p>
+            <div className="mt-10 flex flex-col gap-3 sm:flex-row"><Button href="/projects" variant="gold" className="px-7 py-4">Explore live projects <span aria-hidden="true" className="ml-2 text-xl">↗</span></Button><Button href="/auth/signup" variant="outline" className="border-paper text-paper hover:bg-paper hover:text-navy px-7 py-4">Post a brief</Button></div>
+            <div className="mt-14 grid max-w-lg grid-cols-3 border-t border-paper/20 pt-5 text-xs text-paper/55"><div><strong className="block text-2xl text-paper">01</strong> real work</div><div><strong className="block text-2xl text-paper">02</strong> clear feedback</div><div><strong className="block text-2xl text-paper">03</strong> public proof</div></div>
+          </div>
+          <div className="relative lg:col-span-5 lg:pl-10">
+            <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full border border-gold/30" />
+            <div className="relative rotate-2 bg-paper p-3 text-ink shadow-2xl transition-transform duration-500 hover:rotate-0"><div className="border border-navy/20 p-6 sm:p-8"><div className="flex items-start justify-between border-b border-navy/20 pb-6"><div><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-navy/55">Certificate of contribution</p><p className="mt-2 font-mono text-xs text-navy/60">CERT-AP4Q-5FM7-ZL3U</p></div><div className="flex h-12 w-12 items-center justify-center rounded-full border-2 border-gold text-xl text-navy">✓</div></div><p className="mt-12 text-xs uppercase tracking-[0.18em] text-navy/50">Issued to</p><h2 className="mt-2 text-4xl font-black tracking-tight text-navy">Jane Doe</h2><p className="mt-2 text-sm text-ink/65">for shipping the API integration at Apex Global</p><div className="mt-12 grid grid-cols-2 gap-4 border-t border-navy/20 pt-5 text-xs"><div><span className="block text-navy/45">Skills recorded</span><span className="mt-1 block font-semibold">Next.js · TypeScript</span></div><div><span className="block text-navy/45">Status</span><span className="mt-1 block font-semibold text-green-700">Verified by client</span></div></div><div className="mt-8 flex items-center justify-between border-t border-navy/20 pt-4 text-[10px] font-mono text-navy/50"><span>certitask.com/verify</span><span>2026 / 0148</span></div></div></div>
+            <div className="absolute -bottom-8 -left-2 bg-gold px-4 py-3 text-xs font-bold uppercase tracking-[0.12em] text-navy shadow-lg">Anyone can verify this</div>
           </div>
         </div>
       </section>
 
-      {/* 2. HOW IT WORKS SECTION */}
-      <section id="how-it-works" className="py-24 bg-navy-dark text-paper relative scroll-mt-20">
-        <div className="absolute inset-0 opacity-5 bg-[radial-gradient(#C9A227_1px,transparent_1px)] [background-size:24px_24px]"></div>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-          <div className="text-center max-w-3xl mx-auto mb-16 space-y-4">
-            <h2 className="text-xs font-bold text-gold tracking-widest uppercase">The Pipeline</h2>
-            <p className="text-3xl sm:text-4xl font-extrabold text-paper tracking-tight">How It Works</p>
-            <p className="text-lg text-paper/75">
-              A simple, structured way for talent to gain verified experience and for clients to get real work done.
-            </p>
-          </div>
+      <section id="how-it-works" className="scroll-mt-20 border-b border-navy/10 bg-paper py-20 sm:py-28"><div className="mx-auto max-w-7xl px-6 sm:px-10"><div className="flex flex-col justify-between gap-5 border-b border-navy/15 pb-8 md:flex-row md:items-end"><div><p className="text-xs font-bold uppercase tracking-[0.18em] text-navy/50">The simple loop</p><h2 className="mt-3 max-w-xl text-4xl font-black tracking-tight text-navy sm:text-5xl">Experience, with a paper trail.</h2></div><p className="max-w-sm text-sm leading-relaxed text-ink/65">A clean route from a good brief to a credential with enough detail to mean something.</p></div><div className="mt-12 grid grid-cols-1 divide-y divide-navy/15 border-y border-navy/15 md:grid-cols-4 md:divide-x md:divide-y-0">{steps.map(([number, title, description]) => <div key={number} className="group px-0 py-7 md:px-6 md:first:pl-0 md:last:pr-0"><span className="font-mono text-sm text-navy/40">{number}</span><h3 className="mt-12 text-xl font-bold text-navy">{title}</h3><p className="mt-3 text-sm leading-relaxed text-ink/65">{description}</p><span className="mt-8 block text-2xl text-gold transition-transform duration-300 group-hover:translate-x-2">→</span></div>)}</div></div></section>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-            {steps.map((step, idx) => (
-              <div key={step.title} className="relative bg-navy p-6 rounded-xl border border-gold/10">
-                {idx < steps.length - 1 && (
-                  <div className="hidden lg:block absolute top-1/2 -right-4 translate-x-1/2 z-20">
-                    <svg className="h-6 w-6 text-gold" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
-                    </svg>
-                  </div>
-                )}
-                <div className="font-mono text-4xl font-black text-gold/30 mb-4">{step.number}</div>
-                <h3 className="font-sans font-bold text-lg text-paper mb-2">{step.title}</h3>
-                <p className="text-sm text-paper/70 leading-relaxed">{step.description}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+      <section className="bg-paper py-20 sm:py-28"><div className="mx-auto max-w-7xl px-6 sm:px-10"><div className="flex items-end justify-between border-b border-navy/15 pb-6"><div><p className="text-xs font-bold uppercase tracking-[0.18em] text-gold">Open briefs</p><h2 className="mt-2 text-4xl font-black tracking-tight text-navy">Work already in motion</h2></div><Link href="/clients" className="hidden text-sm font-bold text-navy hover:text-gold sm:block">View all clients ↗</Link></div><div className="mt-2 divide-y divide-navy/15 border-b border-navy/15">{clients.length > 0 ? clients.map((client) => <Link href={`/clients/${client.id}`} key={client.id} className="group grid grid-cols-[auto_1fr_auto] items-center gap-5 py-6 transition-colors hover:bg-white/50 sm:grid-cols-[auto_1fr_1fr_auto]"><div className="flex h-12 w-12 items-center justify-center bg-navy text-xl font-black text-gold">{client.logoChar}</div><div><h3 className="font-bold text-navy">{client.name}</h3><p className="mt-1 text-xs text-ink/55">{client.tag} · {client.location}</p></div><p className="hidden max-w-xs text-sm text-ink/65 sm:block">{client.description}</p><div className="text-right"><span className="block font-mono text-sm text-navy">{client.openProjects.toString().padStart(2, "0")}</span><span className="text-[10px] uppercase tracking-wider text-ink/50">open</span></div></Link>) : <div className="py-12 text-center text-sm text-ink/60">More partners joining soon. Check back for new briefs.</div>}</div><Link href="/clients" className="mt-6 block text-sm font-bold text-navy sm:hidden">View all clients ↗</Link></div></section>
 
-      {/* 3. WHY CERTITASK SECTION */}
-      <section className="py-24 bg-paper text-ink">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-3xl mx-auto mb-16 space-y-4">
-            <h2 className="text-xs font-bold text-gold tracking-widest uppercase">Value Proposition</h2>
-            <h3 className="text-3xl sm:text-4xl font-extrabold text-navy tracking-tight">Why CertiTask?</h3>
-            <p className="text-lg text-ink/75 leading-relaxed">
-              We bridge the gap between classroom learnings and industry demands with high-fidelity proof.
-            </p>
-          </div>
+      <section className="bg-navy py-20 text-paper sm:py-28"><div className="mx-auto grid max-w-7xl gap-12 px-6 sm:px-10 lg:grid-cols-2 lg:items-end"><div><p className="text-xs font-bold uppercase tracking-[0.18em] text-gold">For the people doing the work</p><h2 className="mt-4 max-w-2xl text-4xl font-black leading-tight tracking-tight sm:text-6xl">Your next opportunity should leave evidence.</h2></div><div><p className="max-w-md text-base leading-relaxed text-paper/70">Stop collecting certificates that describe a course. Build a record that describes what you actually delivered, who reviewed it, and which skills you used.</p><Button href="/auth/signup" variant="gold" className="mt-8">Build your record <span aria-hidden="true" className="ml-2 text-xl">↗</span></Button></div></div></section>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {benefits.map((feat) => (
-              <div
-                key={feat.title}
-                className="bg-white p-8 rounded-xl border border-navy/5 shadow-xs hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group"
-              >
-                <div className="h-12 w-12 rounded-lg bg-navy flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
-                  {feat.icon}
-                </div>
-                <h3 className="font-sans font-bold text-xl text-navy mb-3">{feat.title}</h3>
-                <p className="text-sm text-ink/80 leading-relaxed">{feat.description}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* 4. CLIENTS SHOWCASE SECTION */}
-      <section className="py-24 bg-paper text-ink border-t border-navy/5">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-12">
-            <div className="space-y-3">
-              <h2 className="text-xs font-bold text-gold tracking-widest uppercase">Trusted Partners</h2>
-              <h3 className="text-3xl font-extrabold text-navy tracking-tight">Clients posting now</h3>
-              <p className="text-sm text-ink/75 max-w-xl">
-                Explore profiles, ongoing roles, and verification requirements set by our partnered firms.
-              </p>
-            </div>
-            <div className="mt-4 sm:mt-0">
-              <Button href="/clients" variant="outline">
-                View all clients
-              </Button>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {displayClients.length > 0 ? (
-              displayClients.map((comp) => (
-                <div
-                  key={comp.id}
-                  className="bg-white p-6 rounded-xl border border-navy/5 shadow-xs hover:shadow-lg transition-shadow"
-                >
-                  <div className="flex items-center gap-4 mb-4">
-                    <div className="h-12 w-12 rounded-lg bg-navy flex items-center justify-center text-gold font-bold text-lg">
-                      {comp.logoChar}
-                    </div>
-                    <div>
-                      <h4 className="font-bold text-navy text-base">{comp.name}</h4>
-                      <span className="inline-block text-[10px] font-semibold text-gold bg-gold/10 px-2 py-0.5 rounded border border-gold/10 mt-1">
-                        {comp.tag}
-                      </span>
-                      {comp.verified && <span className="inline-block text-[10px] font-semibold text-green-700 bg-green-50 px-2 py-0.5 rounded border border-green-200 mt-1 ml-1">✓ Verified</span>}
-                    </div>
-                  </div>
-                  <p className="text-sm text-ink/85 leading-relaxed mb-6">
-                    {comp.description}
-                  </p>
-                  <div className="flex justify-between items-center text-xs text-ink/65 pt-4 border-t border-navy/5">
-                    <span className="flex items-center gap-1">
-                      <svg className="h-4 w-4 text-gold" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                      </svg>
-                      {comp.location} · {comp.openProjects} open
-                    </span>
-                    <Link href={`/clients/${comp.id}`} className="text-gold font-semibold hover:underline">
-                      View Profile &rarr;
-                    </Link>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="col-span-1 md:col-span-3 text-center py-12 bg-white rounded-xl border border-navy/5">
-                <p className="text-navy font-bold text-lg mb-2">More partners joining soon!</p>
-                <p className="text-ink/60 text-sm">No clients have open projects right now. Check back soon.</p>
-              </div>
-            )}
-          </div>
-        </div>
-      </section>
-
-      {/* 5. FOR TALENT SECTION */}
-      <section className="py-20 bg-navy text-paper border-t border-gold/15">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
-            <div className="space-y-6">
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-gold/10 text-gold border border-gold/20">
-                For Talent
-              </span>
-              <h3 className="text-3xl font-extrabold tracking-tight">
-                Build your portfolio with real work, <br />
-                <span className="text-gold">not just course certificates.</span>
-              </h3>
-              <p className="text-paper/80 leading-relaxed font-sans text-sm">
-                Students, freelancers, career-changers: apply what you know to a real project, work solo or with a team, and walk away with verifiable proof of your skill.
-              </p>
-              <div className="pt-2">
-                <Button href="/projects" variant="gold" className="px-6 py-3">
-                  Explore Projects
-                </Button>
-              </div>
-            </div>
-            <div className="bg-navy-dark/40 p-6 rounded-xl border border-paper/10 text-xs font-mono text-paper/70 space-y-2">
-              <p className="text-gold font-bold">{"// FOR TALENT:"}</p>
-              <p>&gt; Work on projects a client actually needs.</p>
-              <p>&gt; Collaborate in agile sprint pipelines.</p>
-              <p>&gt; Get direct feedback from the client.</p>
-              <p>&gt; Build verifiable credential badges.</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* 6. FOR CLIENTS SECTION */}
-      <section className="py-20 bg-paper text-ink">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
-            <div className="order-2 md:order-1 bg-navy p-6 rounded-xl border border-gold/10 text-xs font-mono text-paper/85 space-y-2">
-              <p className="text-gold font-bold">{"// RECRUITMENT SIMPLIFIED:"}</p>
-              <p>&gt; Filter candidate pools by verified project signoffs.</p>
-              <p>&gt; Inspect code quality & pull request metrics directly.</p>
-              <p>&gt; Reduce typical interview vetting costs by 60%.</p>
-            </div>
-            <div className="order-1 md:order-2 space-y-6">
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-navy/5 text-navy border border-navy/10">
-                For Clients
-              </span>
-              <h3 className="text-3xl font-extrabold tracking-tight text-navy">
-                Get focused, well-scoped work done <br />
-                <span className="text-gold">by motivated talent.</span>
-              </h3>
-              <p className="text-ink/80 leading-relaxed text-sm">
-                A landing page, a data script, a marketing plan, a research brief. Post it as an organization or an individual, review the work, and issue a certificate when it&apos;s done well.
-              </p>
-              <div className="pt-2">
-                <Button href="/auth/signup" variant="primary" className="px-6 py-3">
-                  Post a Project
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* 7. CERTIFICATE VERIFICATION SECTION */}
-      <section className="py-24 bg-navy-dark text-paper border-t border-gold/15">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
-            <div className="lg:col-span-7 space-y-6">
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-gold/15 text-gold border border-gold/20">
-                Security & Trust
-              </span>
-              <h3 className="text-3xl font-extrabold text-paper tracking-tight">
-                Publicly Verifiable Credentials
-              </h3>
-              <p className="text-sm text-paper/75 leading-relaxed">
-                Every certificate has a unique ID and a signed record. Anyone can look it up on the verification page, no account needed, and see the recipient, the client, the project and the skills, plus whether it has been revoked.
-              </p>
-              <div className="pt-2">
-                <Button href="/verify" variant="outline" className="border-paper text-paper hover:bg-paper hover:text-navy">
-                  Verify a Certificate
-                </Button>
-              </div>
-            </div>
-
-            <div className="lg:col-span-5 bg-navy border border-gold/15 p-6 rounded-xl space-y-4">
-              <h4 className="font-bold text-gold text-sm font-sans">Verification Query Simulator</h4>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  placeholder="Enter Certificate ID..."
-                  disabled
-                  value="CERT-333333"
-                  className="bg-navy-dark text-paper/50 border border-gold/15 px-3 py-2 rounded text-xs w-full cursor-not-allowed font-mono"
-                />
-                <Button href="/verify" variant="gold" className="text-xs py-2 px-4 shrink-0">
-                  Query
-                </Button>
-              </div>
-              <div className="bg-navy-dark p-3 rounded text-[10px] font-mono text-green-400 border border-green-950">
-                STATUS: VALID<br />
-                TALENT: JANE DOE<br />
-                ISSUER: ACME STUDIO (VERIFIED ORG)<br />
-                ID: CERT-AP4Q-5FM7-ZL3U
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* 8. FINAL CTA SECTION */}
-      <section className="py-24 bg-gradient-to-br from-navy-dark via-navy to-navy-dark text-paper text-center relative overflow-hidden">
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[300px] bg-gold/5 rounded-full blur-3xl"></div>
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 space-y-8">
-          <h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight">
-            Stop saying you have the skills. <br />
-            <span className="text-gold">Start proving them.</span>
-          </h2>
-          <p className="text-lg text-paper/85 max-w-xl mx-auto leading-relaxed">
-            Join CertiTask today. Do real work, earn certificates, and let anyone verify them.
-          </p>
-          <div className="pt-4">
-            <Button href="/auth/signup" variant="gold" className="px-10 py-4 text-lg">
-              Get Started
-            </Button>
-          </div>
-          <div className="text-xs text-paper/50 font-mono">
-            CertiTask platform — build verified skills.
-          </div>
-        </div>
-      </section>
+      <section className="relative overflow-hidden bg-navy-dark py-24 text-center text-paper sm:py-32"><div className="absolute left-1/2 top-0 h-px w-40 -translate-x-1/2 bg-gold" /><div className="mx-auto max-w-3xl px-6"><p className="text-xs font-bold uppercase tracking-[0.18em] text-gold">The last mile</p><h2 className="mt-5 text-4xl font-black tracking-tight sm:text-6xl">Make proof easy to trust.</h2><p className="mx-auto mt-6 max-w-xl text-lg leading-relaxed text-paper/70">Every CertiTask certificate has a unique ID, a client sign-off, and a public verification page.</p><div className="mt-10 flex flex-col justify-center gap-3 sm:flex-row"><Button href="/verify" variant="outline" className="border-paper text-paper hover:bg-paper hover:text-navy">Verify a certificate</Button><Button href="/auth/signup" variant="gold">Get started <span aria-hidden="true" className="ml-2 text-xl">↗</span></Button></div></div></section>
     </div>
   );
 }

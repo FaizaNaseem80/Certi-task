@@ -71,32 +71,49 @@ export default function AdminLoginPage() {
   }
 
   return (
-    <div className="auth-root" style={{ background: "var(--navy-dark)" }}>
-      {/* ── Form Panel ──────────────────────────────────────── */}
-      <div className="auth-form-panel" style={{ width: "100%", maxWidth: "500px", margin: "0 auto", padding: "40px" }}>
-        <div className="auth-form-inner">
-          <div className="auth-mobile-logo" style={{ display: "flex", justifyContent: "center", marginBottom: "32px" }}>
+    <div className="min-h-screen bg-navy-dark text-paper lg:grid lg:grid-cols-[1.05fr_0.95fr]">
+      <aside className="relative hidden overflow-hidden border-r border-gold/15 bg-navy lg:flex lg:flex-col lg:justify-between lg:p-12 xl:p-20">
+        <div className="absolute inset-0 opacity-10 bg-[linear-gradient(to_right,#C9A227_1px,transparent_1px),linear-gradient(to_bottom,#C9A227_1px,transparent_1px)] bg-[size:4rem_4rem]" />
+        <div className="relative z-10">
+          <div className="flex items-center gap-3">
             <Image src="/app-icon-128.png" alt="CertiTask" width={48} height={48} />
+            <span className="text-2xl font-bold tracking-tight">Certi<span className="text-gold">Task</span></span>
+          </div>
+          <div className="mt-32 max-w-xl">
+            <p className="flex items-center gap-3 text-xs font-mono uppercase tracking-[0.2em] text-gold"><span className="h-px w-10 bg-gold" /> Private workspace</p>
+            <h1 className="mt-8 text-5xl font-black leading-[0.98] tracking-[-0.04em] xl:text-7xl">Keep the <span className="text-gold">proof</span> moving.</h1>
+            <p className="mt-8 max-w-md text-lg leading-relaxed text-paper/65">Review projects, protect the integrity of certificates, and keep the CertiTask network accountable.</p>
+          </div>
+        </div>
+        <div className="relative z-10 grid max-w-lg grid-cols-3 border-t border-paper/15 pt-5 text-xs text-paper/50"><div><strong className="block text-lg text-paper">01</strong>Review</div><div><strong className="block text-lg text-paper">02</strong>Protect</div><div><strong className="block text-lg text-paper">03</strong>Resolve</div></div>
+      </aside>
+
+      <main className="flex min-h-screen items-center justify-center bg-paper px-6 py-10 text-ink sm:px-10">
+        <div className="w-full max-w-md">
+          <div className="mb-10 flex items-center gap-3 lg:hidden"><Image src="/app-icon-128.png" alt="CertiTask" width={42} height={42} /><span className="text-2xl font-bold tracking-tight text-navy">Certi<span className="text-gold">Task</span></span></div>
+          <div className="mb-8">
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-gold">Administrator access</p>
+            <h2 className="mt-3 text-4xl font-black tracking-tight text-navy">Welcome back.</h2>
+            <p className="mt-3 text-sm leading-relaxed text-ink/60">Sign in to manage the platform and verify the work behind every credential.</p>
           </div>
 
-          <div className="auth-card" style={{ borderTop: "4px solid var(--gold)" }}>
-            <h2 className="auth-heading" style={{ color: "var(--navy-dark)" }}>Super Admin Portal</h2>
-            <p className="auth-sub">Secure access to the administrative dashboard</p>
+          <div className="border border-navy/15 bg-white p-6 shadow-[8px_8px_0_var(--gold-light)] sm:p-8">
+            <div className="mb-8 flex items-center justify-between border-b border-navy/10 pb-5"><div><p className="text-[10px] font-bold uppercase tracking-[0.16em] text-navy/50">Access level</p><p className="mt-1 text-sm font-bold text-navy">Super administrator</p></div><div className="flex h-10 w-10 items-center justify-center rounded-full border border-gold bg-gold/10 text-lg text-navy">✓</div></div>
 
-            <form onSubmit={handleSubmit} noValidate className="mt-8">
+            <form onSubmit={handleSubmit} noValidate className="space-y-6">
               {/* Email */}
-              <div className="form-group">
-                <label className="form-label" htmlFor="login-email">
-                  Administrator Email
+              <div>
+                <label className="mb-2 block text-[11px] font-bold uppercase tracking-[0.14em] text-navy/65" htmlFor="login-email">
+                  Administrator email
                 </label>
-                <div className="input-wrap">
-                  <span className="input-icon">
+                <div className="flex items-center border-b-2 border-navy/20 bg-paper/60 transition-colors focus-within:border-gold">
+                  <span className="ml-3 text-navy/45">
                     <MailIcon />
                   </span>
                   <input
                     id="login-email"
                     type="email"
-                    className={`form-input${error ? " has-error" : ""}`}
+                    className="w-full border-0 bg-transparent px-3 py-4 text-sm text-ink outline-none placeholder:text-ink/35"
                     placeholder="admin@certitask.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
@@ -107,20 +124,20 @@ export default function AdminLoginPage() {
               </div>
 
               {/* Password */}
-              <div className="form-group">
+              <div>
                 <div className="flex items-center justify-between">
-                  <label className="form-label" htmlFor="login-password">
+                  <label className="mb-2 block text-[11px] font-bold uppercase tracking-[0.14em] text-navy/65" htmlFor="login-password">
                     Password
                   </label>
                 </div>
-                <div className="input-wrap">
-                  <span className="input-icon">
+                <div className="flex items-center border-b-2 border-navy/20 bg-paper/60 transition-colors focus-within:border-gold">
+                  <span className="ml-3 text-navy/45">
                     <LockIcon />
                   </span>
                   <input
                     id="login-password"
                     type={showPass ? "text" : "password"}
-                    className={`form-input${error ? " has-error" : ""}`}
+                    className="w-full border-0 bg-transparent px-3 py-4 text-sm text-ink outline-none placeholder:text-ink/35"
                     placeholder="••••••••"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
@@ -129,7 +146,7 @@ export default function AdminLoginPage() {
                   />
                   <button
                     type="button"
-                    className="input-btn"
+                    className="mr-3 text-navy/45 transition-colors hover:text-gold"
                     onClick={() => setShowPass((v) => !v)}
                     aria-label={showPass ? "Hide password" : "Show password"}
                   >
@@ -140,7 +157,7 @@ export default function AdminLoginPage() {
 
               {/* Error */}
               {error && (
-                <div className="field-error mb-4">
+                <div className="flex items-start gap-2 border border-red-200 bg-red-50 p-3 text-xs leading-relaxed text-red-800">
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" style={{ width: 14, height: 14, flexShrink: 0 }}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
                   </svg>
@@ -151,9 +168,8 @@ export default function AdminLoginPage() {
               <button
                 type="submit"
                 id="login-submit"
-                className={`btn-primary mt-4${loading ? " loading" : ""}`}
+                className="mt-2 flex w-full items-center justify-center gap-2 bg-navy-dark px-5 py-4 text-xs font-bold uppercase tracking-[0.14em] text-paper transition-colors hover:bg-navy disabled:cursor-not-allowed disabled:opacity-50"
                 disabled={loading || !email || !password}
-                style={{ background: "var(--navy-dark)" }}
               >
                 {loading ? (
                   <>
@@ -166,8 +182,9 @@ export default function AdminLoginPage() {
               </button>
             </form>
           </div>
+          <p className="mt-6 text-center text-xs text-ink/45">CertiTask administration · Protected access</p>
         </div>
-      </div>
+      </main>
     </div>
   );
 }

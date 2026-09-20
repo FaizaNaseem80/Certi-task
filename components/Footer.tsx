@@ -7,7 +7,7 @@ export const Footer = () => {
 
   const links = [
     { name: "Home", href: "/" },
-    { name: "How It Works", href: "/#how-it-works" },
+    { name: "How It Works", href: "/how-it-works" },
     { name: "Clients", href: "/clients" },
     { name: "Browse Projects", href: "/projects" },
     { name: "Verify Certificate", href: "/verify" },
@@ -63,6 +63,11 @@ export const Footer = () => {
                   </Link>
                 </li>
               ))}
+              <li>
+                <Link href="/admin/login" className="text-paper/50 hover:text-gold text-sm transition-colors">
+                  Admin login
+                </Link>
+              </li>
             </ul>
           </div>
 
