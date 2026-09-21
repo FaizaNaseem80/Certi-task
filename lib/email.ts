@@ -160,3 +160,18 @@ export function sendCertificateStatusEmail(to: string, name: string, projectTitl
     html: layout(headline, `<p>Hi ${name},</p><p>${body}</p><p><strong>${projectTitle}</strong> · <code>${certId}</code></p>${reason ? `<p style="padding:12px;background:#FFF7ED;border-radius:8px">Reason given: <em>${reason}</em></p>` : ""}${button(url, "Open certificate")}`),
   });
 }
+
+export function sendAccountStatusEmail(to: string, name: string, kind: "SUSPENDED" | "REINSTATED" | "VERIFICATION_RESET", reason: string | null, dashboardUrl: string) {
+  const headline = kind === "SUSPENDED" ? "Your CertiTask account has been suspended" : kind === "REINSTATED" ? "Your CertiTask account is active again" : "Please resubmit your verification";
+  const body = kind === "SUSPENDED"
+    ? "An administrator has suspended your account. You are signed out and cannot sign in until it is reinstated. If you believe this is a mistake, reply to this email."
+    : kind === "REINSTATED"
+      ? "Your account has been reinstated. You can sign in and continue where you left off."
+      : "An administrator has reset your identity verification. Please submit your documents again from the Verification tab.";
+  return sendEmail({
+    to,
+    subject: headline,
+    text: `Hi ${name},\n\n${body}\n${reason ? `\nReason: ${reason}\n` : ""}\n${dashboardUrl}`,
+    html: layout(headline, `<p>Hi ${name},</p><p>${body}</p>${reason ? `<p style="padding:12px;background:#FFF7ED;border-radius:8px"><strong>Reason:</strong> ${reason}</p>` : ""}${kind === "SUSPENDED" ? "" : button(dashboardUrl, "Open dashboard")}`),
+  });
+}
